@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: LocalSettings = {
   uiLanguage: "ja",
   theme: "light",
   viewMode: "facing",
+  showSourceText: true,
 };
 
 const VALID_FONT_SIZES = new Set(["small", "medium", "large", "extra-large"]);
@@ -54,6 +55,10 @@ export function parseStoredSettings(raw: string | null): LocalSettings {
         typeof parsed.viewMode === "string" && VALID_VIEW_MODES.has(parsed.viewMode)
           ? (parsed.viewMode as LocalSettings["viewMode"])
           : DEFAULT_SETTINGS.viewMode,
+      showSourceText:
+        typeof parsed.showSourceText === "boolean"
+          ? parsed.showSourceText
+          : DEFAULT_SETTINGS.showSourceText,
     };
   } catch {
     return DEFAULT_SETTINGS;

@@ -18,6 +18,7 @@ describe("parseStoredSettings", () => {
       uiLanguage: "en",
       theme: "dark",
       viewMode: "shared",
+      showSourceText: false,
     });
 
     expect(parseStoredSettings(stored)).toEqual({
@@ -27,6 +28,7 @@ describe("parseStoredSettings", () => {
       uiLanguage: "en",
       theme: "dark",
       viewMode: "shared",
+      showSourceText: false,
     });
   });
 
@@ -38,6 +40,7 @@ describe("parseStoredSettings", () => {
       uiLanguage: "fr",
       theme: "sepia",
       viewMode: "grid",
+      showSourceText: "nope",
     });
 
     expect(parseStoredSettings(stored)).toEqual(DEFAULT_SETTINGS);
@@ -68,6 +71,7 @@ describe("parseStoredSettings", () => {
       uiLanguage: "en",
       theme: "light",
       viewMode: "facing",
+      showSourceText: true,
     });
   });
 
@@ -88,6 +92,29 @@ describe("parseStoredSettings", () => {
       uiLanguage: "en",
       theme: "dark",
       viewMode: "facing",
+      showSourceText: true,
+    });
+  });
+
+  test("migrates pre-showSourceText-field settings by defaulting showSourceText to true", () => {
+    // Simulates a value saved before the original-text toggle shipped.
+    const stored = JSON.stringify({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+      theme: "dark",
+      viewMode: "shared",
+    });
+
+    expect(parseStoredSettings(stored)).toEqual({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+      theme: "dark",
+      viewMode: "shared",
+      showSourceText: true,
     });
   });
 });
