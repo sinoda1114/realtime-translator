@@ -8,7 +8,7 @@
 :root {
   --background: var(--color-paper);
   --foreground: var(--color-ink);
-  --surface: oklch(98% 0.006 42);
+  --surface: oklch(98% 0.006 200);
   --surface-secondary: var(--color-paper-2);
   --surface-tertiary: var(--color-paper-3);
   --muted: var(--color-muted);
@@ -18,7 +18,7 @@
   --separator: var(--color-rule-2);
   --danger: var(--color-danger);
   --danger-foreground: var(--color-danger-ink);
-  --field-background: oklch(98% 0.006 42);
+  --field-background: oklch(98% 0.006 200);
   --field-foreground: var(--color-ink);
   --focus: var(--color-focus);
 }

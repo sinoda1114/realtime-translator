@@ -27,9 +27,14 @@ consumer-playful signal fires)
 **custom (tuned)**. Signal: the brief carries a real functional constraint the
 20-theme catalog can't carry — a palette that must read calmly across two
 cultures, stay legible in direct sunlight, and work identically right-side-up
-and rotated 180°. Vibe: *"calm human warmth, cross-cultural trust, daylight-
-legible, quiet confidence."* Anchor: warm clay/terracotta (not blue —
-avoids generic "AI chat" cold-blue default, avoids red's alarm connotation).
+and rotated 180°. Vibe: *"fresh cross-cultural trust, daylight-legible, quiet
+confidence."* Anchor: ocean/teal (blue-green, the colour of the globe seen
+from orbit — reads as international/connective, fresher and less "AI chat
+cold-blue" than a pure blue, and avoids red's alarm connotation). Revised
+2026-07-25 at explicit user request: the original warm clay/terracotta
+anchor read as too muted; ocean/teal keeps the same daylight-legible,
+low-saturation-on-neutral structure while carrying a "global" brand meaning
+more literally.
 
 ## Macrostructure families
 
@@ -55,32 +60,32 @@ outdoor glare is a real failure mode for this product). Dark variant ships via
 `prefers-color-scheme` for evening/indoor use.
 
 ### Light
-- `--color-paper`      oklch(96.5% 0.010 42)
-- `--color-paper-2`     oklch(93% 0.012 42)
-- `--color-paper-3`     oklch(89% 0.014 42)
-- `--color-ink`         oklch(22% 0.014 42)
-- `--color-ink-2`       oklch(38% 0.012 42)
-- `--color-rule`        oklch(78% 0.014 42)
-- `--color-rule-2`      oklch(85% 0.012 42)
-- `--color-muted`       oklch(50% 0.012 42)
-- `--color-accent`      oklch(56% 0.150 38)   /* darkened from 60% for WCAG AA 4.5:1 on accent-ink */
-- `--color-accent-ink`  oklch(98% 0.010 42)   /* text on accent fill */
-- `--color-focus`       oklch(58% 0.200 38)
+- `--color-paper`      oklch(96.5% 0.010 200)
+- `--color-paper-2`     oklch(93% 0.012 200)
+- `--color-paper-3`     oklch(89% 0.014 200)
+- `--color-ink`         oklch(22% 0.014 200)
+- `--color-ink-2`       oklch(38% 0.012 200)
+- `--color-rule`        oklch(78% 0.014 200)
+- `--color-rule-2`      oklch(85% 0.012 200)
+- `--color-muted`       oklch(50% 0.012 200)
+- `--color-accent`      oklch(50% 0.140 200)   /* #007982 — 5.20:1 vs accent-ink text, 4.71:1 vs paper (both exceed AA) */
+- `--color-accent-ink`  oklch(98% 0.010 200)   /* text on accent fill */
+- `--color-focus`       oklch(52% 0.190 200)
 - `--color-danger`      oklch(52% 0.180 25)
 - `--color-danger-ink`  oklch(98% 0.010 25)
 
 ### Dark
-- `--color-paper`      oklch(16% 0.014 42)
-- `--color-paper-2`     oklch(20% 0.014 42)
-- `--color-paper-3`     oklch(25% 0.014 42)
-- `--color-ink`         oklch(94% 0.010 42)
-- `--color-ink-2`       oklch(78% 0.012 42)
-- `--color-rule`        oklch(32% 0.014 42)
-- `--color-rule-2`      oklch(26% 0.014 42)
-- `--color-muted`       oklch(62% 0.012 42)
-- `--color-accent`      oklch(68% 0.150 38)
-- `--color-accent-ink`  oklch(16% 0.014 42)
-- `--color-focus`       oklch(72% 0.190 38)
+- `--color-paper`      oklch(16% 0.014 200)
+- `--color-paper-2`     oklch(20% 0.014 200)
+- `--color-paper-3`     oklch(25% 0.014 200)
+- `--color-ink`         oklch(94% 0.010 200)
+- `--color-ink-2`       oklch(78% 0.012 200)
+- `--color-rule`        oklch(32% 0.014 200)
+- `--color-rule-2`      oklch(26% 0.014 200)
+- `--color-muted`       oklch(62% 0.012 200)
+- `--color-accent`      oklch(68% 0.140 200)   /* 7.26:1 vs dark paper */
+- `--color-accent-ink`  oklch(16% 0.014 200)
+- `--color-focus`       oklch(70% 0.190 200)
 - `--color-danger`      oklch(66% 0.170 25)
 - `--color-danger-ink`  oklch(16% 0.014 25)
 
