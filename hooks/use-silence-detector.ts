@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculateRms } from "@/lib/audio/rms";
 import { SilenceDetector } from "@/lib/audio/silence-detector";
+import {
+  calibrateThresholds,
+  CALIBRATION_DURATION_MS,
+  DEFAULT_START_THRESHOLD,
+  DEFAULT_STOP_THRESHOLD,
+} from "@/lib/audio/threshold-calibration";
+import { logger } from "@/lib/logger";
 
-// Tuned against real phone-microphone RMS levels (browser AnalyserNode +
-// MediaStream noise suppression/AGC), not just a clean synthetic test tone —
-// normal conversational speech at arm's length commonly peaks well below the
-// levels a loud sustained tone produces.
-const START_THRESHOLD = 0.006;
-const STOP_THRESHOLD = 0.003;
 const POLL_INTERVAL_MS = 50;
 const RMS_DISPLAY_UPDATE_EVERY_N_TICKS = 4;
+const CALIBRATION_TICKS = Math.ceil(CALIBRATION_DURATION_MS / POLL_INTERVAL_MS);
 
 export interface UseSilenceDetectorOptions {
   silenceDurationMs: number;
@@ -37,6 +39,8 @@ export function useSilenceDetector(options: UseSilenceDetectorOptions): UseSilen
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const tickCountRef = useRef(0);
+  const calibrationSamplesRef = useRef<number[]>([]);
+  const isCalibratingRef = useRef(false);
   const optionsRef = useRef(options);
   useEffect(() => {
     optionsRef.current = options;
@@ -55,6 +59,8 @@ export function useSilenceDetector(options: UseSilenceDetectorOptions): UseSilen
     detectorRef.current = null;
     dataArrayRef.current = null;
     tickCountRef.current = 0;
+    calibrationSamplesRef.current = [];
+    isCalibratingRef.current = false;
     setIsSpeaking(false);
     setCurrentRms(null);
   }, []);
@@ -80,9 +86,11 @@ export function useSilenceDetector(options: UseSilenceDetectorOptions): UseSilen
         return;
       }
 
+      // Starts on the fixed defaults; the calibration window below replaces
+      // them once it has heard enough of the room.
       detectorRef.current = new SilenceDetector({
-        startThreshold: START_THRESHOLD,
-        stopThreshold: STOP_THRESHOLD,
+        startThreshold: DEFAULT_START_THRESHOLD,
+        stopThreshold: DEFAULT_STOP_THRESHOLD,
         silenceDurationMs: optionsRef.current.silenceDurationMs,
         onSpeechStart: () => {
           setIsSpeaking(true);
@@ -93,6 +101,8 @@ export function useSilenceDetector(options: UseSilenceDetectorOptions): UseSilen
           optionsRef.current.onFinalize();
         },
       });
+      calibrationSamplesRef.current = [];
+      isCalibratingRef.current = true;
 
       intervalRef.current = setInterval(() => {
         const analyser = analyserRef.current;
@@ -103,6 +113,29 @@ export function useSilenceDetector(options: UseSilenceDetectorOptions): UseSilen
         }
         analyser.getByteTimeDomainData(dataArray);
         const rms = calculateRms(dataArray);
+
+        if (isCalibratingRef.current) {
+          calibrationSamplesRef.current.push(rms);
+          if (calibrationSamplesRef.current.length >= CALIBRATION_TICKS) {
+            const { startThreshold, stopThreshold } = calibrateThresholds(
+              calibrationSamplesRef.current,
+            );
+            detector.setThresholds(startThreshold, stopThreshold);
+            isCalibratingRef.current = false;
+            calibrationSamplesRef.current = [];
+            logger.info("silence_detector.calibrated", {
+              startThreshold: startThreshold.toFixed(5),
+              stopThreshold: stopThreshold.toFixed(5),
+            });
+          }
+        }
+
+        // Runs during calibration too, on the fixed defaults. Skipping it for
+        // the calibration window would drop any utterance that both starts
+        // and ends within the first ~1.5s — it would never be finalized on
+        // its own, only swept up into whatever is spoken next. Detection is
+        // simply less sensitive until the thresholds settle, which is no
+        // worse than the pre-calibration behaviour.
         detector.update(rms, performance.now());
 
         tickCountRef.current += 1;

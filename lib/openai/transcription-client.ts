@@ -263,9 +263,29 @@ export class RealtimeTranscriptionClient implements TranslationClient {
       });
       return Promise.reject(new Error("Cannot commit utterance: DataChannel is not open"));
     }
+    // Register the pending commit BEFORE sending. send() throws
+    // InvalidStateError if the channel started closing between the
+    // readyState check above and this line — which is exactly what happens
+    // on stop(), where flush() finalizes the last utterance microseconds
+    // before teardown() closes the channel. With the old ordering that throw
+    // escaped commitUtterance() synchronously, no pending entry existed, and
+    // the last utterance's accumulated transcript was discarded outright.
+    // Registering first means close()'s flushAll() can still resolve it from
+    // the accumulated deltas, so the final utterance survives.
+    const pending = this.tracker.commit();
     logger.info("transcription.commit_sent", { deltaEvents: String(this.deltaEventCount) });
-    this.dataChannel.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
-    return this.tracker.commit();
+    try {
+      this.dataChannel.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+    } catch {
+      // Not rethrown: the pending commit above will still resolve (via the
+      // timeout, or immediately via flushAll() when close() runs), yielding
+      // the accumulated text rather than nothing.
+      logger.warn("transcription.commit_send_failed", {
+        readyState: this.dataChannel?.readyState ?? "no-channel",
+        deltaEvents: String(this.deltaEventCount),
+      });
+    }
+    return pending;
   }
 
   async close(): Promise<void> {
