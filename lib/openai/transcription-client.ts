@@ -42,7 +42,12 @@ export class RealtimeTranscriptionClient implements TranslationClient {
   private dataChannel: RTCDataChannel | null = null;
   private readonly warnedUnhandledEventTypes = new Set<string>();
   private stream: MediaStream | null = null;
-  private refreshClientSecret: (() => Promise<string>) | null = null;
+  private refreshClientSecret: ((targetLanguage: TargetLanguage) => Promise<string>) | null = null;
+  // v2 ignores target language server-side (transcription-only session), so
+  // this is only kept around to satisfy refreshClientSecret's shared
+  // signature with v1 — always the value connect() was originally called
+  // with, never changed by anything in this class.
+  private targetLanguage: TargetLanguage | null = null;
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isClosing = false;
@@ -63,6 +68,7 @@ export class RealtimeTranscriptionClient implements TranslationClient {
   async connect(input: TranslationClientConnectInput): Promise<void> {
     this.stream = input.stream;
     this.refreshClientSecret = input.refreshClientSecret ?? null;
+    this.targetLanguage = input.targetLanguage;
     this.isClosing = false;
     this.reconnectAttempt = 0;
 
@@ -201,11 +207,11 @@ export class RealtimeTranscriptionClient implements TranslationClient {
   }
 
   private async attemptReconnect(): Promise<void> {
-    if (this.isClosing || !this.refreshClientSecret) {
+    if (this.isClosing || !this.refreshClientSecret || !this.targetLanguage) {
       return;
     }
     try {
-      const freshSecret = await this.refreshClientSecret();
+      const freshSecret = await this.refreshClientSecret(this.targetLanguage);
       if (this.isClosing) {
         // close() ran while awaiting a fresh token — the caller no longer
         // wants this session, don't spend a round-trip opening a connection
