@@ -45,6 +45,7 @@ export interface UseTranslationSessionResult {
   errorMessage: string | null;
   autoDetectNotice: string | null;
   isMockMode: boolean;
+  currentRms: number | null;
   start: () => Promise<void>;
   stop: () => Promise<void>;
   setSourceLanguage: (language: SourceLanguage) => void;
@@ -379,6 +380,7 @@ export function useTranslationSession(
     errorMessage,
     autoDetectNotice,
     isMockMode: isMockSession,
+    currentRms: silenceDetector.currentRms,
     start,
     stop,
     setSourceLanguage,
