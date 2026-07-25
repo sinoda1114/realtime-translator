@@ -99,4 +99,10 @@ test("finalizes and saves an utterance after real silence is detected", async ({
     expect(body.data.length).toBeGreaterThan(0);
     expect(body.data[0].utteranceCount).toBeGreaterThan(0);
   }).toPass({ timeout: 15_000 });
+
+  // The finalized exchange must stay visible on screen — both speakers keep
+  // a short scrollback log instead of the pane clearing back to blank the
+  // moment silence resets the live buffer.
+  await expect(page.getByText("今日は横浜に行きます。").first()).toBeVisible();
+  await expect(page.getByText("I'm going to Yokohama today.").first()).toBeVisible();
 });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getTargetLanguage } from "@/lib/translation/direction";
 import { formatAutoDetectNotice, t } from "@/lib/i18n/translate";
+import { appendCompletedUtterance } from "@/lib/translation/completed-utterances";
 import {
   createAutoDetectState,
   detectLanguage,
@@ -21,6 +22,7 @@ import { useMicrophone } from "@/hooks/use-microphone";
 import { useSilenceDetector } from "@/hooks/use-silence-detector";
 import { useTranscriptBuffer } from "@/hooks/use-transcript-buffer";
 import type {
+  CompletedUtterance,
   RealtimeConnectionState,
   SourceLanguage,
   TargetLanguage,
@@ -45,6 +47,7 @@ export interface UseTranslationSessionResult {
   isSpeaking: boolean;
   sourceText: string;
   translatedText: string;
+  completedUtterances: CompletedUtterance[];
   errorMessage: string | null;
   autoDetectNotice: string | null;
   isMockMode: boolean;
@@ -85,6 +88,7 @@ export function useTranslationSession(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [autoDetectNotice, setAutoDetectNotice] = useState<string | null>(null);
   const [isMockSession, setIsMockSession] = useState(clientEnv.NEXT_PUBLIC_ENABLE_MOCK_TRANSLATION);
+  const [completedUtterances, setCompletedUtterances] = useState<CompletedUtterance[]>([]);
 
   const deviceId = useDeviceId();
   const { requestMicrophone, releaseMicrophone } = useMicrophone();
@@ -148,6 +152,19 @@ export function useTranslationSession(
       setState((current) => (current === "speaking" ? "listening" : current));
       return;
     }
+
+    // Surface the finished exchange in the on-screen log immediately — this
+    // must not depend on the DB save below succeeding, since the whole point
+    // is that both speakers can keep reading past turns without leaving the
+    // live session.
+    setCompletedUtterances((current) =>
+      appendCompletedUtterance(current, {
+        id: crypto.randomUUID(),
+        sourceLanguage: sourceLanguageRef.current,
+        sourceText: snapshot.sourceText,
+        translatedText: snapshot.translatedText,
+      }),
+    );
 
     const conversationId = conversationIdRef.current;
     const currentDeviceId = deviceIdRef.current;
@@ -215,6 +232,7 @@ export function useTranslationSession(
     setErrorMessage(null);
     setState("requesting_permission");
     reset();
+    setCompletedUtterances([]);
 
     let stream: MediaStream;
     try {
@@ -404,6 +422,7 @@ export function useTranslationSession(
     isSpeaking: silenceDetector.isSpeaking,
     sourceText: buffer.sourceText,
     translatedText: buffer.translatedText,
+    completedUtterances,
     errorMessage,
     autoDetectNotice,
     isMockMode: isMockSession,
