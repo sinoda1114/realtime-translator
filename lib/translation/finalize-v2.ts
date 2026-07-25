@@ -38,6 +38,14 @@ export interface V2FinalizeDeps {
   setPhase: (phase: V2FinalizePhase) => void;
   createId?: () => string;
   delay?: (ms: number) => Promise<void>;
+  /**
+   * Whether the session is still running. Consulted before spending the
+   * retry delay on a failed commit: when the user has pressed stop, the
+   * client is being torn down and no retry can ever succeed, so waiting
+   * 1.5s just to fail again is pure latency. Defaults to always-running
+   * when omitted.
+   */
+  isSessionActive?: () => boolean;
 }
 
 // Orchestrates the v2 finalize flow: commit the audio buffer, wait for the
@@ -73,8 +81,28 @@ export function createV2FinalizeHandler(deps: V2FinalizeDeps): () => Promise<voi
       // never does), but if it somehow did, that must fall through to the
       // same error/done handling below instead of rejecting finalizeV2()
       // itself and leaving the caller stuck in "finalizing".
+      //
+      // Skip the retry entirely when the session is already stopping: the
+      // client is being torn down, so no retry can succeed and the wait is
+      // wasted. (The caller also suppresses the error in that case — this
+      // just avoids the pointless 1.5s.)
+      if (deps.isSessionActive && !deps.isSessionActive()) {
+        deps.onError("発話の確定に失敗しました");
+        deps.setPhase("done");
+        return;
+      }
       try {
         await delay(COMMIT_RETRY_DELAY_MS);
+        // Re-check after the wait: the user can press stop *during* the 1.5s,
+        // and by then the client is being torn down — retrying would poke a
+        // closing connection for a session that's over. Checked separately
+        // from the pre-delay check above because that one only rules out a
+        // session that was already stopping when the commit first failed.
+        if (deps.isSessionActive && !deps.isSessionActive()) {
+          deps.onError("発話の確定に失敗しました");
+          deps.setPhase("done");
+          return;
+        }
         commitResult = await deps.commitUtterance();
       } catch {
         deps.onError("発話の確定に失敗しました");
