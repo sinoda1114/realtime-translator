@@ -51,6 +51,20 @@ export function TranslatorScreen() {
     previousStateRef.current = session.state;
   }, [session.state]);
 
+  // The v2 finalize flow can report a translate/commit failure via
+  // errorMessage without transitioning session.state to "error" (those
+  // failures don't end the session — the next utterance can still stream
+  // normally), so the state-based trigger above doesn't catch them. Without
+  // this, a v2 error would sit in StatusBar behind a collapsed panel where
+  // nobody would ever see it.
+  const previousErrorMessageRef = useRef(session.errorMessage);
+  useEffect(() => {
+    if (session.errorMessage && session.errorMessage !== previousErrorMessageRef.current) {
+      setControlsExpanded(true);
+    }
+    previousErrorMessageRef.current = session.errorMessage;
+  }, [session.errorMessage]);
+
   return (
     <div className="flex h-dvh flex-col bg-[var(--color-paper)] text-[var(--color-ink)]">
       <LayoutToggle

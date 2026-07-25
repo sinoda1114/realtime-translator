@@ -11,6 +11,18 @@ import { logger } from "@/lib/logger";
 
 const SDP_ENDPOINT = "https://api.openai.com/v1/realtime/calls";
 
+// Diagnostic helper for malformed-event warnings — deliberately reports only
+// field presence/type and key names, never field values, since delta/
+// transcript values are the user's actual transcribed speech.
+function eventShapeFields(event: Record<string, unknown>): Record<string, string> {
+  return {
+    keys: Object.keys(event).sort().join(","),
+    itemIdType: typeof event.item_id,
+    deltaType: typeof event.delta,
+    transcriptType: typeof event.transcript,
+  };
+}
+
 export interface RealtimeTranscriptionClientOptions {
   commitTimeoutMs?: number;
 }
@@ -139,16 +151,30 @@ export class RealtimeTranscriptionClient implements TranslationClient {
         if (typeof event.item_id === "string" && typeof event.delta === "string") {
           this.tracker.appendDelta(event.item_id, event.delta);
           this.callbacks.onSourceDelta(event.delta);
+        } else {
+          // Diagnostic: if the real API's delta event shape doesn't match
+          // what we assumed (e.g. a different field name for item_id), this
+          // event is silently dropped — nothing gets committed to the
+          // tracker and every downstream commit/translate step ends up
+          // starting from empty text. Surface the mismatch so it shows up
+          // in the browser console instead of failing silently. Logs only
+          // field presence/type and the event's key names — never the raw
+          // payload, which would include the actual transcribed speech.
+          logger.warn("transcription.delta_missing_fields", eventShapeFields(event));
         }
         break;
       case "input_audio_buffer.committed":
         if (typeof event.item_id === "string") {
           this.tracker.noteCommitted(event.item_id);
+        } else {
+          logger.warn("transcription.committed_missing_item_id", eventShapeFields(event));
         }
         break;
       case "conversation.item.input_audio_transcription.completed":
         if (typeof event.item_id === "string" && typeof event.transcript === "string") {
           this.tracker.resolveCompleted(event.item_id, event.transcript);
+        } else {
+          logger.warn("transcription.completed_missing_fields", eventShapeFields(event));
         }
         break;
       case "error": {

@@ -1,4 +1,5 @@
 import { getTargetLanguage } from "./direction";
+import { logger } from "@/lib/logger";
 import type {
   CompletedUtterance,
   SourceLanguage,
@@ -50,6 +51,23 @@ export function createV2FinalizeHandler(deps: V2FinalizeDeps): () => Promise<voi
     }
     const sourceText = commitResult.transcript.trim();
     if (!sourceText) {
+      // Diagnostic: an empty committed transcript means either the speaker
+      // said nothing (routine — a silence-detector false trigger, expected
+      // to happen somewhat often) or, more concerningly, delta/completed
+      // events weren't recognized upstream (see transcription-client.ts's
+      // *_missing_fields warnings) and the tracker fell back to nothing.
+      // Silent in the UI either way (no error makes sense to show for
+      // "nothing was said"), but the two cases are distinguishable by
+      // commitResult.source: "completed" means the server itself confirmed
+      // an empty transcript (routine, logged at info to avoid warn-fatigue
+      // burying the real signal); "fallback" means the 5s timeout fired
+      // with no completed event at all, which is the more suspicious case
+      // worth a warn-level trail.
+      if (commitResult.source === "fallback") {
+        logger.warn("v2_finalize.empty_transcript_fallback", {});
+      } else {
+        logger.info("v2_finalize.empty_transcript", {});
+      }
       deps.setPhase("done");
       return;
     }
