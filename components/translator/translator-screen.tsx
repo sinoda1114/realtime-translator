@@ -86,12 +86,22 @@ export function TranslatorScreen() {
           }`}
         >
           <div className="flex flex-col items-center gap-2 overflow-hidden">
-            <div className="flex w-full items-center justify-between gap-3">
-              <LanguageControls
-                sourceLanguage={session.sourceLanguage}
-                disabled={isControlsDisabled}
-                onSelectLanguage={session.setSourceLanguage}
-              />
+            <div
+              className={`flex w-full items-center gap-3 ${
+                session.autoDetect ? "justify-end" : "justify-between"
+              }`}
+            >
+              {/* Auto-detect is the primary way to use this app (日英会話
+                  モード); the manual language pills only make sense once
+                  auto-detect is off and the source language needs to be set
+                  explicitly, so they're hidden entirely otherwise. */}
+              {!session.autoDetect && (
+                <LanguageControls
+                  sourceLanguage={session.sourceLanguage}
+                  disabled={isControlsDisabled}
+                  onSelectLanguage={session.setSourceLanguage}
+                />
+              )}
               <TopNav
                 uiLanguage={settings.uiLanguage}
                 theme={settings.theme}
