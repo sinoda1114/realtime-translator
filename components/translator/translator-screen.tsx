@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocalSettings } from "@/hooks/use-local-settings";
 import { useTranslationSession } from "@/hooks/use-translation-session";
 import { t } from "@/lib/i18n/translate";
+import { DiagnosticsPanel } from "./diagnostics-panel";
 import { LanguageControls } from "./language-controls";
 import { LayoutToggle } from "./layout-toggle";
 import { SessionButton } from "./session-button";
@@ -144,6 +145,8 @@ export function TranslatorScreen() {
               autoDetectNotice={session.autoDetectNotice}
               currentRms={session.currentRms}
             />
+
+            {settings.showDiagnostics && <DiagnosticsPanel uiLanguage={settings.uiLanguage} />}
           </div>
         </div>
 

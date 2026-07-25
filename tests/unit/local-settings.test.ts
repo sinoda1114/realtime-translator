@@ -31,6 +31,7 @@ describe("parseStoredSettings", () => {
       viewMode: "shared",
       showSourceText: false,
       translationEngine: "v2",
+      showDiagnostics: false,
     });
   });
 
@@ -44,9 +45,19 @@ describe("parseStoredSettings", () => {
       viewMode: "grid",
       showSourceText: "nope",
       translationEngine: "v3",
+      showDiagnostics: "on",
     });
 
     expect(parseStoredSettings(stored)).toEqual(DEFAULT_SETTINGS);
+  });
+
+  test("keeps a stored showDiagnostics value", () => {
+    const stored = JSON.stringify({ showDiagnostics: true });
+
+    expect(parseStoredSettings(stored)).toEqual({
+      ...DEFAULT_SETTINGS,
+      showDiagnostics: true,
+    });
   });
 
   test("falls back to defaults for missing fields", () => {
@@ -76,6 +87,7 @@ describe("parseStoredSettings", () => {
       viewMode: "facing",
       showSourceText: true,
       translationEngine: "v1",
+      showDiagnostics: false,
     });
   });
 
@@ -98,6 +110,7 @@ describe("parseStoredSettings", () => {
       viewMode: "facing",
       showSourceText: true,
       translationEngine: "v1",
+      showDiagnostics: false,
     });
   });
 
@@ -121,6 +134,7 @@ describe("parseStoredSettings", () => {
       viewMode: "shared",
       showSourceText: true,
       translationEngine: "v1",
+      showDiagnostics: false,
     });
   });
 
@@ -145,6 +159,7 @@ describe("parseStoredSettings", () => {
       viewMode: "shared",
       showSourceText: false,
       translationEngine: "v1",
+      showDiagnostics: false,
     });
   });
 });

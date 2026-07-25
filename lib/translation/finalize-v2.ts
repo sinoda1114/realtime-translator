@@ -134,11 +134,23 @@ export function createV2FinalizeHandler(deps: V2FinalizeDeps): () => Promise<voi
     }
 
     const targetLanguage = getTargetLanguage(sourceLanguage);
+    // Diagnostic: records that a non-empty transcript made it this far and a
+    // translation was actually requested. Logs only the length, never the
+    // text itself (that's the user's speech). Paired with
+    // translate_ok/translate_failed below, this pins down whether a missing
+    // translation is a transcription problem or a translation problem.
+    logger.info("v2_finalize.translate_requested", {
+      chars: String(sourceText.length),
+      source: commitResult.source,
+      direction: `${sourceLanguage}->${targetLanguage}`,
+    });
 
     let translatedText: string;
     try {
       translatedText = await deps.translate(sourceText, sourceLanguage, targetLanguage);
+      logger.info("v2_finalize.translate_ok", { chars: String(translatedText.length) });
     } catch {
+      logger.error("v2_finalize.translate_failed", {});
       deps.onError("翻訳に失敗しました");
       deps.setPhase("done");
       return;

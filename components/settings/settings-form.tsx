@@ -154,6 +154,26 @@ export function SettingsForm({ settings, isMockMode, onUpdate, onDeleteAll }: Se
         </p>
       </section>
 
+      <section className="flex flex-col gap-3">
+        <SectionHeading>{t(lang, "診断モード")}</SectionHeading>
+        <Switch
+          isSelected={settings.showDiagnostics}
+          onChange={(value) => onUpdate({ showDiagnostics: value })}
+        >
+          <Switch.Content>
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <span className="text-[length:var(--text-sm)]">
+              {t(lang, "翻訳画面に診断ログを表示する")}
+            </span>
+          </Switch.Content>
+        </Switch>
+        <p className="text-[length:var(--text-sm)] text-[var(--color-ink-2)]">
+          {t(lang, "不具合の調査用です。発話内容は記録されません。")}
+        </p>
+      </section>
+
       <section className="flex flex-col gap-2 rounded-[var(--radius-card)] bg-[var(--color-paper-2)] p-4">
         <SectionHeading>{t(lang, "モックモード")}</SectionHeading>
         <p className="text-[length:var(--text-sm)] text-[var(--color-ink-2)]">

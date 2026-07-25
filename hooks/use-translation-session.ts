@@ -488,21 +488,43 @@ export function useTranslationSession(
         appendTranslation(delta);
       },
       onStateChange: (connectionState: RealtimeConnectionState) => {
-        if (connectionState === "connected") {
+        if (connectionState === "connected" && !isStoppingRef.current) {
+          // Also guarded: teardown() stops the silence detector and releases
+          // the mic, so a "connected" arriving after stop() began would
+          // restart the detector on a stream about to be released and put a
+          // stopped session back into "listening". The clients do check
+          // their own isClosing before emitting this, but that flag is only
+          // set once teardown() actually calls close() — this covers the
+          // window between stop() starting and that call.
           setState("listening");
           silenceDetector.start(stream);
-        } else if (connectionState === "reconnecting" && stateRef.current !== "stopping") {
+        } else if (connectionState === "reconnecting" && !isStoppingRef.current) {
           // v2 only: the WebRTC connection dropped mid-session and the
           // client is retrying with a fresh token before giving up. Distinct
           // from "disconnected", which is the final, no-more-retries state.
           setState("reconnecting");
-        } else if (connectionState === "disconnected" && stateRef.current !== "stopping") {
+        } else if (connectionState === "disconnected" && !isStoppingRef.current) {
+          // Guarded on isStoppingRef, NOT on stateRef.current !== "stopping":
+          // stop() does setState("stopping") and then immediately awaits
+          // teardown(), which closes the client and synchronously emits
+          // "disconnected". setState is async, so stateRef is still holding
+          // the pre-stop value at that moment and the old guard never fired
+          // — every stop surfaced "接続が切れました", flipped the session to
+          // "error", and re-entered teardown(). Same class of bug as the
+          // commit-error suppression below; isStoppingRef is set
+          // synchronously at the top of stop() precisely for this.
           setErrorMessage(t(uiLanguageRef.current, "接続が切れました"));
           setState("error");
           void teardown();
         }
       },
       onError: (error: { message: string }) => {
+        if (isStoppingRef.current) {
+          // Same reasoning as the "disconnected" branch above: tearing the
+          // client down on stop can surface a client-level error that is
+          // just the expected consequence of stopping.
+          return;
+        }
         setErrorMessage(t(uiLanguageRef.current, error.message));
         setState("error");
         void teardown();
