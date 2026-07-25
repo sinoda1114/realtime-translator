@@ -110,12 +110,14 @@ export class RealtimeTranslationClient implements TranslationClient {
     switch (event.type) {
       case "session.input_transcript.delta":
         if ("delta" in event && typeof event.delta === "string") {
-          this.callbacks.onSourceDelta(event.delta);
+          const elapsedMs = typeof event.elapsed_ms === "number" ? event.elapsed_ms : undefined;
+          this.callbacks.onSourceDelta(event.delta, elapsedMs);
         }
         break;
       case "session.output_transcript.delta":
         if ("delta" in event && typeof event.delta === "string") {
-          this.callbacks.onTranslationDelta(event.delta);
+          const elapsedMs = typeof event.elapsed_ms === "number" ? event.elapsed_ms : undefined;
+          this.callbacks.onTranslationDelta(event.delta, elapsedMs);
         }
         break;
       case "error": {

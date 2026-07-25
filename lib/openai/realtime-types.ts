@@ -10,7 +10,7 @@ export interface RealtimeClientSecretCreateResponse {
 }
 
 export type RealtimeServerEvent =
-  | { type: "session.input_transcript.delta"; delta: string }
-  | { type: "session.output_transcript.delta"; delta: string }
+  | { type: "session.input_transcript.delta"; delta: string; elapsed_ms?: number }
+  | { type: "session.output_transcript.delta"; delta: string; elapsed_ms?: number }
   | { type: "error"; error: { message: string } }
   | { type: string; [key: string]: unknown };
