@@ -87,6 +87,7 @@ export function createV2FinalizeHandler(deps: V2FinalizeDeps): () => Promise<voi
       // wasted. (The caller also suppresses the error in that case — this
       // just avoids the pointless 1.5s.)
       if (deps.isSessionActive && !deps.isSessionActive()) {
+        logger.warn("v2_finalize.commit_abandoned_session_over", {});
         deps.onError("発話の確定に失敗しました");
         deps.setPhase("done");
         return;
@@ -99,17 +100,29 @@ export function createV2FinalizeHandler(deps: V2FinalizeDeps): () => Promise<voi
         // from the pre-delay check above because that one only rules out a
         // session that was already stopping when the commit first failed.
         if (deps.isSessionActive && !deps.isSessionActive()) {
+          logger.warn("v2_finalize.commit_abandoned_during_retry", {});
           deps.onError("発話の確定に失敗しました");
           deps.setPhase("done");
           return;
         }
         commitResult = await deps.commitUtterance();
       } catch {
+        logger.warn("v2_finalize.commit_retry_failed", {});
         deps.onError("発話の確定に失敗しました");
         deps.setPhase("done");
         return;
       }
     }
+    // Unconditional: every earlier attempt to diagnose this flow from logs hit
+    // the same wall — the exit paths above logged nothing, so "no further
+    // logs after commit_sent" was ambiguous between "promise never resolved",
+    // "resolved empty", and "commit rejected". Recording the resolved result
+    // here (length only, never the text) makes those three distinguishable at
+    // a glance.
+    logger.info("v2_finalize.commit_resolved", {
+      chars: String(commitResult.transcript.trim().length),
+      source: commitResult.source,
+    });
     const sourceText = commitResult.transcript.trim();
     if (!sourceText) {
       // Diagnostic: an empty committed transcript means either the speaker

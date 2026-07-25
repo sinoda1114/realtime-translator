@@ -21,6 +21,7 @@ import {
   snapshotTranscriptBuffer,
 } from "@/lib/translation/transcript-buffer";
 import { clientEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { useDeviceId } from "@/hooks/use-device-id";
 import { useMicrophone } from "@/hooks/use-microphone";
 import { useSilenceDetector } from "@/hooks/use-silence-detector";
@@ -265,8 +266,14 @@ export function useTranslationSession(
   const handleFinalizeV2 = useCallback(async () => {
     const client = clientRef.current;
     if (!client?.commitUtterance) {
+      // Diagnostic: if the client is already gone (torn down) when the
+      // silence detector finalizes, the whole v2 flow is skipped silently and
+      // no other log fires — which reads identically to "finalize never ran"
+      // when reading the on-screen diagnostics.
+      logger.warn("v2_finalize.skipped_no_client", {});
       return;
     }
+    logger.info("v2_finalize.started", {});
 
     const utteranceStartedAt = utteranceStartedAtRef.current;
     utteranceStartedAtRef.current = null;
