@@ -87,13 +87,17 @@ describe("SilenceDetector", () => {
     expect(onFinalize).toHaveBeenCalledTimes(1);
   });
 
-  test("flush does nothing while already listening", () => {
+  // Changed deliberately: when threshold detection never fires the state
+  // stays "listening" for the whole session even though audio has been
+  // accumulating, and the old "only flush while speaking" rule silently
+  // discarded it on stop() / language switch.
+  test("flush finalizes even from the listening state", () => {
     const onFinalize = vi.fn();
     const detector = createDetector({ onFinalize });
 
     detector.flush();
 
-    expect(onFinalize).not.toHaveBeenCalled();
+    expect(onFinalize).toHaveBeenCalledOnce();
   });
 
   test("reset returns the detector to the listening state", () => {
@@ -103,6 +107,82 @@ describe("SilenceDetector", () => {
     detector.reset();
 
     expect(detector.getState()).toBe("listening");
+  });
+
+  // The failure this backstop exists for, reproduced exactly: on the affected
+  // device the RMS never crossed the start threshold, so the detector sat in
+  // "listening" while transcription deltas piled up for 17-25s and not a
+  // single utterance was ever finalized — no translation, every time.
+  describe("maxUtteranceMs backstop", () => {
+    test("finalizes on the cap even when the volume never registers as speech", () => {
+      const onFinalize = vi.fn();
+      const detector = new SilenceDetector({
+        startThreshold: START_THRESHOLD,
+        stopThreshold: STOP_THRESHOLD,
+        silenceDurationMs: SILENCE_DURATION_MS,
+        maxUtteranceMs: 5000,
+        onFinalize,
+      });
+
+      // Every sample below the start threshold — speech is never detected.
+      detector.update(0.001, 0);
+      detector.update(0.001, 2000);
+      expect(onFinalize).not.toHaveBeenCalled();
+      expect(detector.getState()).toBe("listening");
+
+      detector.update(0.001, 5000);
+
+      expect(onFinalize).toHaveBeenCalledOnce();
+    });
+
+    test("restarts the cap after each finalize so it keeps firing", () => {
+      const onFinalize = vi.fn();
+      const detector = new SilenceDetector({
+        startThreshold: START_THRESHOLD,
+        stopThreshold: STOP_THRESHOLD,
+        silenceDurationMs: SILENCE_DURATION_MS,
+        maxUtteranceMs: 5000,
+        onFinalize,
+      });
+
+      detector.update(0.001, 0);
+      detector.update(0.001, 5000);
+      expect(onFinalize).toHaveBeenCalledTimes(1);
+
+      detector.update(0.001, 5050); // clock restarts here
+      detector.update(0.001, 10050);
+
+      expect(onFinalize).toHaveBeenCalledTimes(2);
+    });
+
+    // Threshold detection remains the preferred boundary — the cap must not
+    // pre-empt a real pause that arrives first.
+    test("normal silence detection still wins when it fires before the cap", () => {
+      const onFinalize = vi.fn();
+      const detector = new SilenceDetector({
+        startThreshold: START_THRESHOLD,
+        stopThreshold: STOP_THRESHOLD,
+        silenceDurationMs: SILENCE_DURATION_MS,
+        maxUtteranceMs: 5000,
+        onFinalize,
+      });
+
+      detector.update(0.1, 0); // speaking
+      detector.update(0.001, 100); // silence starts
+      detector.update(0.001, 100 + SILENCE_DURATION_MS); // 1000ms — well under the cap
+
+      expect(onFinalize).toHaveBeenCalledOnce();
+    });
+
+    test("no cap behaves exactly as before when maxUtteranceMs is omitted", () => {
+      const onFinalize = vi.fn();
+      const detector = createDetector({ onFinalize });
+
+      detector.update(0.001, 0);
+      detector.update(0.001, 60_000);
+
+      expect(onFinalize).not.toHaveBeenCalled();
+    });
   });
 
   // The ambient-noise calibration runs while the detector is already live
