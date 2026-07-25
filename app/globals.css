@@ -24,10 +24,15 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --surface: var(--color-paper-2);
     --field-background: var(--color-paper-2);
   }
+}
+
+:root[data-theme="dark"] {
+  --surface: var(--color-paper-2);
+  --field-background: var(--color-paper-2);
 }
 
 html,

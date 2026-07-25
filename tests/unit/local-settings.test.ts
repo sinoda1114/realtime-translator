@@ -16,6 +16,7 @@ describe("parseStoredSettings", () => {
       silenceDurationMs: 1200,
       autoDetectDefault: true,
       uiLanguage: "en",
+      theme: "dark",
     });
 
     expect(parseStoredSettings(stored)).toEqual({
@@ -23,6 +24,7 @@ describe("parseStoredSettings", () => {
       silenceDurationMs: 1200,
       autoDetectDefault: true,
       uiLanguage: "en",
+      theme: "dark",
     });
   });
 
@@ -32,6 +34,7 @@ describe("parseStoredSettings", () => {
       silenceDurationMs: 42,
       autoDetectDefault: "yes",
       uiLanguage: "fr",
+      theme: "sepia",
     });
 
     expect(parseStoredSettings(stored)).toEqual(DEFAULT_SETTINGS);
@@ -43,6 +46,24 @@ describe("parseStoredSettings", () => {
     expect(parseStoredSettings(stored)).toEqual({
       ...DEFAULT_SETTINGS,
       fontSize: "small",
+    });
+  });
+
+  test("migrates pre-theme-field settings by defaulting theme to light", () => {
+    // Simulates a value saved before the theme toggle shipped.
+    const stored = JSON.stringify({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+    });
+
+    expect(parseStoredSettings(stored)).toEqual({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+      theme: "light",
     });
   });
 });
