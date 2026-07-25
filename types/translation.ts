@@ -67,13 +67,18 @@ export interface TranslationClientConnectInput {
   stream: MediaStream;
   targetLanguage: TargetLanguage;
   /**
-   * v2 (transcription) client only: called to obtain a fresh client secret
-   * when reconnecting after the WebRTC connection drops mid-session. The
-   * original clientSecret is single-use for the initial SDP exchange and
-   * can't be reused. Optional because v1's translation client and the mock
-   * client never attempt reconnection.
+   * Called to obtain a fresh client secret whenever a client needs to
+   * (re)establish the WebRTC session with a specific target language: v2
+   * uses it to reconnect after the connection drops mid-session (target
+   * language is irrelevant there — v2's session is transcription-only and
+   * ignores it), and v1 uses it to reconnect with a brand-new session when
+   * the user switches translation direction (target language IS the point
+   * there — see updateTargetLanguage on RealtimeTranslationClient for why a
+   * session.update alone isn't enough). The original clientSecret is
+   * single-use for the initial SDP exchange and can't be reused for either
+   * case. Optional because the mock client never attempts reconnection.
    */
-  refreshClientSecret?: () => Promise<string>;
+  refreshClientSecret?: (targetLanguage: TargetLanguage) => Promise<string>;
 }
 
 export interface TranscriptionCommitResult {

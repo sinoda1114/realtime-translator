@@ -491,12 +491,16 @@ export function useTranslationSession(
 
     clientRef.current = client;
 
-    // v2 only (ignored by v1/mock clients): the initial clientSecret is
-    // single-use for the SDP exchange, so a reconnect after a dropped
-    // connection needs a fresh one from the same token endpoint.
-    const refreshClientSecret = async (): Promise<string> => {
+    // Ignored by the mock client. v2 uses this to reconnect after a dropped
+    // connection (targetLanguage is irrelevant there — v2's session is
+    // transcription-only). v1 uses it to reconnect with a brand-new session
+    // whenever the user switches translation direction (targetLanguage IS
+    // the point there — see RealtimeTranslationClient.updateTargetLanguage).
+    // Either way, the initial clientSecret is single-use for the SDP
+    // exchange and can't be reused.
+    const refreshClientSecret = async (forTargetLanguage: TargetLanguage): Promise<string> => {
       const tokenResult = (await postJson("/api/realtime/token", {
-        targetLanguage: getTargetLanguage(sourceLanguageRef.current),
+        targetLanguage: forTargetLanguage,
         deviceId,
         engine: translationEngine,
       })) as { data: { clientSecret: string | null; mock: boolean } };

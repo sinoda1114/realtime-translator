@@ -161,14 +161,19 @@ describe("RealtimeTranscriptionClient", () => {
     // tests drive the private reconnect state machine directly and stub
     // openConnection where a reconnect attempt needs to "succeed".
     function asInternal(client: RealtimeTranscriptionClient) {
-      return client as unknown as {
-        refreshClientSecret: (() => Promise<string>) | null;
+      const internal = client as unknown as {
+        refreshClientSecret: ((targetLanguage: "ja" | "en") => Promise<string>) | null;
+        targetLanguage: "ja" | "en" | null;
         isClosing: boolean;
         reconnectTimer: ReturnType<typeof setTimeout> | null;
         reconnectAttempt: number;
         openConnection: (clientSecret: string) => Promise<void>;
         scheduleReconnect: () => void;
       };
+      // attemptReconnect() requires a known targetLanguage (set by connect(),
+      // which these tests bypass) before it will call refreshClientSecret.
+      internal.targetLanguage = "en";
+      return internal;
     }
 
     test("gives up immediately when no refreshClientSecret was provided", () => {
