@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "../tokens.css";
+
+/* Retheme HeroUI's primitives to the Realtime Translator palette (design.md).
+   Overriding --accent / --background / etc (not --color-accent) avoids
+   colliding with HeroUI's own @theme inline remap of those primitives. */
+:root {
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+  --surface: oklch(98% 0.006 42);
+  --surface-secondary: var(--color-paper-2);
+  --surface-tertiary: var(--color-paper-3);
+  --muted: var(--color-muted);
+  --accent: var(--color-accent);
+  --accent-foreground: var(--color-accent-ink);
+  --border: var(--color-rule);
+  --separator: var(--color-rule-2);
+  --danger: var(--color-danger);
+  --danger-foreground: var(--color-danger-ink);
+  --field-background: oklch(98% 0.006 42);
+  --field-foreground: var(--color-ink);
+  --focus: var(--color-focus);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: var(--color-paper-2);
+    --field-background: var(--color-paper-2);
+  }
+}
+
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
