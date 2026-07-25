@@ -26,15 +26,38 @@ export const CALIBRATION_DURATION_MS = 1500;
 export const MIN_START_THRESHOLD = 0.0015;
 
 /**
- * Multiple of the measured noise floor that counts as speech. Speech RMS on
- * the affected device sat ~3-4x above its noise floor, so 3x separates the
- * two without demanding the loudness the old fixed default did.
+ * Multiple of the measured noise floor that counts as speech.
+ *
+ * Was 3x on first attempt, which measured on-device as a no-op: the room's
+ * noise floor read ~0.002 while speech read ~0.0056, so 3x landed at 0.006 —
+ * above the speech it was supposed to detect, and identical to the fixed
+ * default it replaced. The usable signal-to-noise gap on that phone is only
+ * ~2.8x, so the start threshold has to sit well inside it.
  */
-const NOISE_FLOOR_MULTIPLIER = 3;
+const START_MULTIPLIER = 2;
 
-/** Speech is considered over below half the level that started it — the
- * same 2:1 ratio the original fixed pair used, preserving its hysteresis. */
-const STOP_RATIO = 0.5;
+/**
+ * Multiple of the noise floor below which speech is considered over.
+ *
+ * Derived from the noise floor directly rather than as a fraction of the
+ * start threshold. The earlier "half of start" rule could place the stop
+ * threshold *below* ambient noise — and RMS never drops below the room's own
+ * noise, so the detector would sit in "speaking" forever and never finalize
+ * an utterance. Keeping this above 1.0 guarantees the level is reachable
+ * during a real pause.
+ */
+const STOP_MULTIPLIER = 1.3;
+
+/**
+ * Ceiling for the stop threshold relative to the start threshold. Preserves
+ * hysteresis (stop must stay meaningfully under start) in the clamped case,
+ * where start was capped and the floor-derived stop could otherwise exceed
+ * it.
+ */
+const MAX_STOP_RATIO_OF_START = 0.8;
+
+/** Mirrors MIN_START_THRESHOLD's purpose for the stop side. */
+const MIN_STOP_THRESHOLD = 0.0008;
 
 export interface CalibratedThresholds {
   startThreshold: number;
@@ -72,11 +95,12 @@ export function calibrateThresholds(samples: readonly number[]): CalibratedThres
   const noiseFloor = median(samples);
   const startThreshold = Math.min(
     DEFAULT_START_THRESHOLD,
-    Math.max(MIN_START_THRESHOLD, noiseFloor * NOISE_FLOOR_MULTIPLIER),
+    Math.max(MIN_START_THRESHOLD, noiseFloor * START_MULTIPLIER),
+  );
+  const stopThreshold = Math.max(
+    MIN_STOP_THRESHOLD,
+    Math.min(noiseFloor * STOP_MULTIPLIER, startThreshold * MAX_STOP_RATIO_OF_START),
   );
 
-  return {
-    startThreshold,
-    stopThreshold: startThreshold * STOP_RATIO,
-  };
+  return { startThreshold, stopThreshold };
 }
