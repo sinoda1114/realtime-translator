@@ -83,37 +83,30 @@ export function TranslatorScreen() {
             controlsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
-          <div className="flex w-full items-center justify-between gap-3 overflow-hidden">
-            <LanguageControls
-              sourceLanguage={session.sourceLanguage}
-              disabled={isControlsDisabled}
-              onSelectLanguage={session.setSourceLanguage}
-            />
-            <TopNav
-              uiLanguage={settings.uiLanguage}
-              theme={settings.theme}
-              onToggleTheme={() =>
-                updateSettings({ theme: settings.theme === "dark" ? "light" : "dark" })
-              }
-            />
-          </div>
-        </div>
-
-        <SessionButton
-          state={session.state}
-          isSpeaking={session.isSpeaking}
-          uiLanguage={settings.uiLanguage}
-          onStart={session.start}
-          onStop={session.stop}
-        />
-
-        <div
-          id={`${CONTROLS_PANEL_ID}-status`}
-          className={`grid w-full transition-[grid-template-rows] duration-(--dur-short) ease-(--ease-out) ${
-            controlsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-          }`}
-        >
           <div className="flex flex-col items-center gap-2 overflow-hidden">
+            <div className="flex w-full items-center justify-between gap-3">
+              <LanguageControls
+                sourceLanguage={session.sourceLanguage}
+                disabled={isControlsDisabled}
+                onSelectLanguage={session.setSourceLanguage}
+              />
+              <TopNav
+                uiLanguage={settings.uiLanguage}
+                theme={settings.theme}
+                onToggleTheme={() =>
+                  updateSettings({ theme: settings.theme === "dark" ? "light" : "dark" })
+                }
+              />
+            </div>
+
+            <SessionButton
+              state={session.state}
+              isSpeaking={session.isSpeaking}
+              uiLanguage={settings.uiLanguage}
+              onStart={session.start}
+              onStop={session.stop}
+            />
+
             <StatusBar
               uiLanguage={settings.uiLanguage}
               errorMessage={session.errorMessage}
@@ -126,15 +119,26 @@ export function TranslatorScreen() {
         <button
           type="button"
           aria-expanded={controlsExpanded}
-          aria-controls={`${CONTROLS_PANEL_ID} ${CONTROLS_PANEL_ID}-status`}
+          aria-controls={CONTROLS_PANEL_ID}
           onClick={() => setControlsExpanded((current) => !current)}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-pill)] text-[var(--color-muted)] transition-colors duration-(--dur-fast) ease-(--ease-out) hover:text-[var(--color-ink)]"
+          className="relative flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-pill)] text-[var(--color-muted)] transition-colors duration-(--dur-fast) ease-(--ease-out) hover:text-[var(--color-ink)]"
         >
+          {!isInactiveState(session.state) && !controlsExpanded && (
+            <span
+              aria-hidden="true"
+              className={[
+                "absolute top-1 right-1 h-2 w-2 rounded-full bg-[var(--color-accent)]",
+                session.isSpeaking ? "animate-pulse motion-reduce:animate-none" : "",
+              ].join(" ")}
+            />
+          )}
           <span aria-hidden="true" className={`transition-transform duration-(--dur-short) ease-(--ease-out) ${controlsExpanded ? "" : "rotate-180"}`}>
             ▲
           </span>
           <span className="sr-only">
-            {t(settings.uiLanguage, controlsExpanded ? "操作パネルを隠す" : "操作パネルを表示する")}
+            {!isInactiveState(session.state) && !controlsExpanded
+              ? t(settings.uiLanguage, "翻訳中 - 操作パネルを表示する")
+              : t(settings.uiLanguage, controlsExpanded ? "操作パネルを隠す" : "操作パネルを表示する")}
           </span>
         </button>
       </div>
