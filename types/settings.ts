@@ -29,4 +29,10 @@ export interface LocalSettings {
   viewMode: ViewMode;
   showSourceText: boolean;
   translationEngine: TranslationEngine;
+  /**
+   * Shows the in-app diagnostic log panel on the translator screen. For
+   * investigating failures that only reproduce on a phone, where a browser
+   * console isn't reachable. Off by default.
+   */
+  showDiagnostics: boolean;
 }

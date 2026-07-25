@@ -59,6 +59,11 @@ export class RealtimeTranscriptionClient implements TranslationClient {
   // ignored instead of tearing down or reconnecting a since-established
   // healthy connection.
   private connectionGeneration = 0;
+  // Counts recognized transcription delta events for diagnostics. Logging
+  // every delta would flood the buffer (they arrive continuously while
+  // speaking), so the count is reported at the points that matter —
+  // commit time — instead.
+  private deltaEventCount = 0;
 
   constructor(callbacks: TranslationClientCallbacks, options: RealtimeTranscriptionClientOptions = {}) {
     this.callbacks = callbacks;
@@ -164,6 +169,7 @@ export class RealtimeTranscriptionClient implements TranslationClient {
 
     const answerSdp = await response.text();
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+    logger.info("transcription.connection_opened", { generation: String(generation) });
   }
 
   private teardownConnection(): void {
@@ -251,8 +257,13 @@ export class RealtimeTranscriptionClient implements TranslationClient {
       // nothing at all) without ever reaching the server — the caller needs
       // to know this failed outright, not treat it as a normal empty
       // utterance.
+      logger.warn("transcription.commit_channel_not_open", {
+        readyState: this.dataChannel?.readyState ?? "no-channel",
+        deltaEvents: String(this.deltaEventCount),
+      });
       return Promise.reject(new Error("Cannot commit utterance: DataChannel is not open"));
     }
+    logger.info("transcription.commit_sent", { deltaEvents: String(this.deltaEventCount) });
     this.dataChannel.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
     return this.tracker.commit();
   }
@@ -281,6 +292,10 @@ export class RealtimeTranscriptionClient implements TranslationClient {
     switch (event.type) {
       case "conversation.item.input_audio_transcription.delta":
         if (typeof event.item_id === "string" && typeof event.delta === "string") {
+          this.deltaEventCount += 1;
+          if (this.deltaEventCount === 1) {
+            logger.info("transcription.first_delta", {});
+          }
           this.tracker.appendDelta(event.item_id, event.delta);
           this.callbacks.onSourceDelta(event.delta);
         } else {

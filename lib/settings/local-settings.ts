@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: LocalSettings = {
   // v2 is experimental and unverified on real devices — default stays v1
   // until real-world testing confirms v2 is at least as reliable.
   translationEngine: "v1",
+  showDiagnostics: false,
 };
 
 const VALID_FONT_SIZES = new Set(["small", "medium", "large", "extra-large"]);
@@ -68,6 +69,10 @@ export function parseStoredSettings(raw: string | null): LocalSettings {
         VALID_TRANSLATION_ENGINES.has(parsed.translationEngine)
           ? (parsed.translationEngine as LocalSettings["translationEngine"])
           : DEFAULT_SETTINGS.translationEngine,
+      showDiagnostics:
+        typeof parsed.showDiagnostics === "boolean"
+          ? parsed.showDiagnostics
+          : DEFAULT_SETTINGS.showDiagnostics,
     };
   } catch {
     return DEFAULT_SETTINGS;

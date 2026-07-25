@@ -38,6 +38,13 @@ const EN: Record<string, string> = {
   "端末IDを準備中です。もう一度お試しください": "Preparing device ID. Please try again.",
   翻訳セッションを開始できません: "Unable to start the translation session",
   接続が切れました: "Connection lost",
+  診断モード: "Diagnostics",
+  診断ログ: "Diagnostic log",
+  クリア: "Clear",
+  まだログはありません: "No entries yet",
+  翻訳画面に診断ログを表示する: "Show the diagnostic log on the translator screen",
+  "不具合の調査用です。発話内容は記録されません。":
+    "For troubleshooting. Spoken content is never recorded.",
   翻訳中にエラーが発生しました: "An error occurred during translation",
   翻訳に失敗しました: "Translation failed",
   発話の確定に失敗しました: "Failed to finalize the utterance",
