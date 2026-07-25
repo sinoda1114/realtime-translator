@@ -154,6 +154,13 @@ export function useTranslationSession(
   // elapsed_ms comparison is an additional, best-effort check layered on
   // top only when timing data is actually available on both sides.
   const hasSourceDeltaRef = useRef(false);
+  // Set synchronously the moment stop() begins, before any await. The
+  // "stopping" session state can't serve this purpose: setState is async, so
+  // stateRef still holds the previous value during the same tick that stop()
+  // flushes the silence detector and tears the client down — exactly the
+  // window where the final utterance's commit fails and must not be
+  // reported as an error.
+  const isStoppingRef = useRef(false);
   useEffect(() => {
     bufferRef.current = buffer;
     sourceLanguageRef.current = sourceLanguage;
@@ -297,7 +304,22 @@ export function useTranslationSession(
           endedOffsetMs,
         });
       },
-      onError: (messageKey) => setErrorMessage(t(uiLanguageRef.current, messageKey)),
+      isSessionActive: () => !isStoppingRef.current && clientRef.current !== null,
+      onError: (messageKey) => {
+        // stop() deliberately flushes the silence detector to finalize the
+        // last utterance, then immediately tears the client down — so the
+        // in-flight commit for that utterance fails by design, and the
+        // finalize handler's retry (1.5s later) fails again against an
+        // already-closed client. Reporting that as an error surfaced
+        // "発話の確定に失敗しました" on a stopped session, which reads as a
+        // bug to the user when it's just the normal consequence of pressing
+        // stop. Suppress errors from a finalize whose session is no longer
+        // running; a genuine mid-session failure still reports normally.
+        if (isStoppingRef.current || clientRef.current === null) {
+          return;
+        }
+        setErrorMessage(t(uiLanguageRef.current, messageKey));
+      },
       setPhase: (phase) => {
         if (phase === "finalizing") {
           setState((current) => (current === "speaking" ? "finalizing" : current));
@@ -366,6 +388,10 @@ export function useTranslationSession(
     acceptDeltasRef.current = true;
     lastSourceElapsedMsRef.current = null;
     hasSourceDeltaRef.current = false;
+    // Cleared here (not at the end of stop()) so a finalize still in flight
+    // from the previous session — its retry can outlive stop() by ~1.5s —
+    // stays suppressed right up until a new session actually begins.
+    isStoppingRef.current = false;
 
     let stream: MediaStream;
     try {
@@ -532,6 +558,10 @@ export function useTranslationSession(
     if (state === "idle" || state === "stopped") {
       return;
     }
+    // Before flush(), which synchronously kicks off the final utterance's
+    // finalize — that commit is expected to fail once teardown() closes the
+    // client below, and must not surface as an error.
+    isStoppingRef.current = true;
     setState("stopping");
     silenceDetector.flush();
     await teardown();

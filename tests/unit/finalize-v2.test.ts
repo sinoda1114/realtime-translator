@@ -76,6 +76,52 @@ describe("createV2FinalizeHandler", () => {
     expect(deps.appendCompleted).toHaveBeenCalledOnce();
   });
 
+  // Regression: pressing stop flushes the last utterance and then
+  // immediately tears the client down, so that commit fails by design.
+  // Spending 1.5s to retry against an already-closing client is pure
+  // latency — no retry can succeed.
+  test("skips the retry entirely when the session is no longer active", async () => {
+    const deps = { ...baseDeps(), isSessionActive: vi.fn().mockReturnValue(false) };
+    deps.commitUtterance.mockRejectedValue(new Error("DataChannel is not open"));
+    const finalize = createV2FinalizeHandler(deps);
+
+    await finalize();
+
+    expect(deps.commitUtterance).toHaveBeenCalledTimes(1);
+    expect(deps.delay).not.toHaveBeenCalled();
+    expect(deps.setPhase.mock.calls.map((call) => call[0])).toEqual(["finalizing", "done"]);
+  });
+
+  test("still retries while the session is active", async () => {
+    const deps = { ...baseDeps(), isSessionActive: vi.fn().mockReturnValue(true) };
+    deps.commitUtterance
+      .mockRejectedValueOnce(new Error("DataChannel is not open"))
+      .mockResolvedValueOnce({ transcript: "こんにちは", source: "completed" });
+    const finalize = createV2FinalizeHandler(deps);
+
+    await finalize();
+
+    expect(deps.commitUtterance).toHaveBeenCalledTimes(2);
+    expect(deps.delay).toHaveBeenCalledWith(1500);
+    expect(deps.onError).not.toHaveBeenCalled();
+  });
+
+  // Regression: the user can press stop DURING the 1.5s retry wait. Checking
+  // isSessionActive() only before the delay left that window uncovered, so
+  // the retry still fired against a client already being torn down.
+  test("abandons the retry if the session stops during the delay", async () => {
+    const isSessionActive = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
+    const deps = { ...baseDeps(), isSessionActive };
+    deps.commitUtterance.mockRejectedValue(new Error("DataChannel is not open"));
+    const finalize = createV2FinalizeHandler(deps);
+
+    await finalize();
+
+    expect(deps.delay).toHaveBeenCalledWith(1500);
+    expect(deps.commitUtterance).toHaveBeenCalledTimes(1);
+    expect(deps.setPhase.mock.calls.map((call) => call[0])).toEqual(["finalizing", "done"]);
+  });
+
   // Regression: delay() rejecting used to escape both try/catch blocks and
   // reject finalizeV2() itself, leaving the caller stuck in "finalizing"
   // instead of reaching the same error/done handling as a failed retry.
