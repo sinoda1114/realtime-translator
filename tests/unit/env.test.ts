@@ -6,6 +6,7 @@ const ENV_KEYS = [
   "TURSO_AUTH_TOKEN",
   "APP_ENV",
   "DEVICE_ID_HASH_SALT",
+  "OPENAI_TRANSLATE_TEXT_MODEL",
   "NEXT_PUBLIC_APP_NAME",
   "NEXT_PUBLIC_ENABLE_MOCK_TRANSLATION",
 ] as const;
@@ -60,5 +61,32 @@ describe("serverEnv", () => {
     const { isTursoConfigured } = await import("@/lib/env");
 
     expect(isTursoConfigured).toBe(false);
+  });
+
+  test("defaults OPENAI_TRANSLATE_TEXT_MODEL when unset", async () => {
+    delete process.env.OPENAI_TRANSLATE_TEXT_MODEL;
+
+    vi.resetModules();
+    const { serverEnv } = await import("@/lib/env");
+
+    expect(serverEnv.OPENAI_TRANSLATE_TEXT_MODEL).toBe("gpt-5-nano");
+  });
+
+  test("defaults OPENAI_TRANSLATE_TEXT_MODEL when set to an empty string", async () => {
+    process.env.OPENAI_TRANSLATE_TEXT_MODEL = "";
+
+    vi.resetModules();
+    const { serverEnv } = await import("@/lib/env");
+
+    expect(serverEnv.OPENAI_TRANSLATE_TEXT_MODEL).toBe("gpt-5-nano");
+  });
+
+  test("respects an explicit OPENAI_TRANSLATE_TEXT_MODEL override", async () => {
+    process.env.OPENAI_TRANSLATE_TEXT_MODEL = "gpt-5-mini";
+
+    vi.resetModules();
+    const { serverEnv } = await import("@/lib/env");
+
+    expect(serverEnv.OPENAI_TRANSLATE_TEXT_MODEL).toBe("gpt-5-mini");
   });
 });

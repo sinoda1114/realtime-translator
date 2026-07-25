@@ -19,6 +19,7 @@ describe("parseStoredSettings", () => {
       theme: "dark",
       viewMode: "shared",
       showSourceText: false,
+      translationEngine: "v2",
     });
 
     expect(parseStoredSettings(stored)).toEqual({
@@ -29,6 +30,7 @@ describe("parseStoredSettings", () => {
       theme: "dark",
       viewMode: "shared",
       showSourceText: false,
+      translationEngine: "v2",
     });
   });
 
@@ -41,6 +43,7 @@ describe("parseStoredSettings", () => {
       theme: "sepia",
       viewMode: "grid",
       showSourceText: "nope",
+      translationEngine: "v3",
     });
 
     expect(parseStoredSettings(stored)).toEqual(DEFAULT_SETTINGS);
@@ -72,6 +75,7 @@ describe("parseStoredSettings", () => {
       theme: "light",
       viewMode: "facing",
       showSourceText: true,
+      translationEngine: "v1",
     });
   });
 
@@ -93,6 +97,7 @@ describe("parseStoredSettings", () => {
       theme: "dark",
       viewMode: "facing",
       showSourceText: true,
+      translationEngine: "v1",
     });
   });
 
@@ -115,6 +120,31 @@ describe("parseStoredSettings", () => {
       theme: "dark",
       viewMode: "shared",
       showSourceText: true,
+      translationEngine: "v1",
+    });
+  });
+
+  test("migrates pre-translationEngine-field settings by defaulting translationEngine to v1", () => {
+    // Simulates a value saved before the v2 translation engine toggle shipped.
+    const stored = JSON.stringify({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+      theme: "dark",
+      viewMode: "shared",
+      showSourceText: false,
+    });
+
+    expect(parseStoredSettings(stored)).toEqual({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+      theme: "dark",
+      viewMode: "shared",
+      showSourceText: false,
+      translationEngine: "v1",
     });
   });
 });

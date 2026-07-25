@@ -14,6 +14,9 @@ export const DEFAULT_SETTINGS: LocalSettings = {
   theme: "light",
   viewMode: "facing",
   showSourceText: true,
+  // v2 is experimental and unverified on real devices — default stays v1
+  // until real-world testing confirms v2 is at least as reliable.
+  translationEngine: "v1",
 };
 
 const VALID_FONT_SIZES = new Set(["small", "medium", "large", "extra-large"]);
@@ -21,6 +24,7 @@ const VALID_SILENCE_DURATIONS = new Set<SilenceDurationMs>([600, 900, 1200, 1500
 const VALID_UI_LANGUAGES = new Set(["ja", "en"]);
 const VALID_THEMES = new Set(["light", "dark"]);
 const VALID_VIEW_MODES = new Set(["facing", "shared"]);
+const VALID_TRANSLATION_ENGINES = new Set(["v1", "v2"]);
 
 export function parseStoredSettings(raw: string | null): LocalSettings {
   if (!raw) {
@@ -59,6 +63,11 @@ export function parseStoredSettings(raw: string | null): LocalSettings {
         typeof parsed.showSourceText === "boolean"
           ? parsed.showSourceText
           : DEFAULT_SETTINGS.showSourceText,
+      translationEngine:
+        typeof parsed.translationEngine === "string" &&
+        VALID_TRANSLATION_ENGINES.has(parsed.translationEngine)
+          ? (parsed.translationEngine as LocalSettings["translationEngine"])
+          : DEFAULT_SETTINGS.translationEngine,
     };
   } catch {
     return DEFAULT_SETTINGS;

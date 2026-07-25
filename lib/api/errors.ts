@@ -5,7 +5,8 @@ export type ApiErrorCode =
   | "RATE_LIMITED"
   | "DB_SAVE_FAILED"
   | "DB_UNAVAILABLE"
-  | "REALTIME_TOKEN_FAILED";
+  | "REALTIME_TOKEN_FAILED"
+  | "TRANSLATE_FAILED";
 
 const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   INVALID_REQUEST: 400,
@@ -15,6 +16,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   DB_SAVE_FAILED: 500,
   DB_UNAVAILABLE: 503,
   REALTIME_TOKEN_FAILED: 502,
+  TRANSLATE_FAILED: 502,
 };
 
 export class ApiError extends Error {

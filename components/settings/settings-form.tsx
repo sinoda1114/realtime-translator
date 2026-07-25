@@ -3,7 +3,7 @@
 import { Switch } from "@heroui/react";
 import { t } from "@/lib/i18n/translate";
 import type { LocalSettings } from "@/types/settings";
-import type { FontSizePreset, SilenceDurationMs, UiLanguage } from "@/types/settings";
+import type { FontSizePreset, SilenceDurationMs, TranslationEngine, UiLanguage } from "@/types/settings";
 
 interface SettingsFormProps {
   settings: LocalSettings;
@@ -29,6 +29,11 @@ const SILENCE_OPTIONS: { value: SilenceDurationMs; label: string }[] = [
 const UI_LANGUAGE_OPTIONS: { value: UiLanguage; label: string }[] = [
   { value: "ja", label: "日本語" },
   { value: "en", label: "English" },
+];
+
+const TRANSLATION_ENGINE_OPTIONS: { value: TranslationEngine; label: string }[] = [
+  { value: "v1", label: "v1（同時通訳）" },
+  { value: "v2", label: "v2（逐次翻訳）" },
 ];
 
 function OptionPill({
@@ -129,6 +134,24 @@ export function SettingsForm({ settings, isMockMode, onUpdate, onDeleteAll }: Se
             </span>
           </Switch.Content>
         </Switch>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionHeading>{t(lang, "翻訳エンジン")}</SectionHeading>
+        <div className="flex flex-wrap gap-2">
+          {TRANSLATION_ENGINE_OPTIONS.map((option) => (
+            <OptionPill
+              key={option.value}
+              active={settings.translationEngine === option.value}
+              onClick={() => onUpdate({ translationEngine: option.value })}
+            >
+              {t(lang, option.label)}
+            </OptionPill>
+          ))}
+        </div>
+        <p className="text-[length:var(--text-sm)] text-[var(--color-ink-2)]">
+          {t(lang, "v2は発話の区切りごとに翻訳します（実験的機能）")}
+        </p>
       </section>
 
       <section className="flex flex-col gap-2 rounded-[var(--radius-card)] bg-[var(--color-paper-2)] p-4">

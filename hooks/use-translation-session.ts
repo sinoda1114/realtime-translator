@@ -13,6 +13,9 @@ import {
 } from "@/lib/translation/language-detector";
 import { MockTranslationClient } from "@/lib/translation/mock-translation-client";
 import { RealtimeTranslationClient } from "@/lib/openai/realtime-client";
+import { RealtimeTranscriptionClient } from "@/lib/openai/transcription-client";
+import { createV2FinalizeHandler } from "@/lib/translation/finalize-v2";
+import { requestTranslation } from "@/lib/translation/translate-api";
 import {
   getTranscriptBufferCompleteness,
   snapshotTranscriptBuffer,
@@ -30,7 +33,7 @@ import type {
   TranslationClient,
   TranslationSessionState,
 } from "@/types/translation";
-import type { UiLanguage } from "@/types/settings";
+import type { TranslationEngine, UiLanguage } from "@/types/settings";
 
 const DEFAULT_SILENCE_DURATION_MS = 900;
 // The realtime API has no turn/utterance concept of its own — it's a single
@@ -47,6 +50,7 @@ export interface UseTranslationSessionOptions {
   silenceDurationMs?: number;
   autoDetectDefault?: boolean;
   uiLanguage?: UiLanguage;
+  translationEngine?: TranslationEngine;
 }
 
 export interface UseTranslationSessionResult {
@@ -181,7 +185,7 @@ export function useTranslationSession(
 
   const targetLanguage = getTargetLanguage(sourceLanguage);
 
-  const handleFinalize = useCallback(() => {
+  const handleFinalizeV1 = useCallback(() => {
     const snapshot = snapshotTranscriptBuffer(bufferRef.current);
     const utteranceStartedAt = utteranceStartedAtRef.current;
     reset();
@@ -244,6 +248,81 @@ export function useTranslationSession(
         setState((current) => (current === "saving" || current === "finalizing" ? "listening" : current));
       });
   }, [reset]);
+
+  // v2: the transcription client owns pairing source text to its
+  // authoritative transcript (via item_id), so finalize here just clears the
+  // live buffer and delegates to createV2FinalizeHandler for the
+  // commit -> translate -> display/save sequence. Fire-and-forget from the
+  // dispatcher below so a new utterance can start streaming immediately
+  // while the previous one's translation is still in flight.
+  const handleFinalizeV2 = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client?.commitUtterance) {
+      return;
+    }
+
+    const utteranceStartedAt = utteranceStartedAtRef.current;
+    utteranceStartedAtRef.current = null;
+    reset();
+
+    const finalize = createV2FinalizeHandler({
+      commitUtterance: () => client.commitUtterance!(),
+      translate: (text, sourceLang, targetLang) =>
+        requestTranslation({
+          text,
+          sourceLanguage: sourceLang,
+          targetLanguage: targetLang,
+          deviceId: deviceIdRef.current ?? "",
+        }),
+      getSourceLanguage: () => sourceLanguageRef.current,
+      appendCompleted: (utterance) =>
+        setCompletedUtterances((current) => appendCompletedUtterance(current, utterance)),
+      saveUtterance: async ({ sourceLanguage: savedSourceLang, targetLanguage: savedTargetLang, sourceText, translatedText }) => {
+        const conversationId = conversationIdRef.current;
+        const currentDeviceId = deviceIdRef.current;
+        if (!conversationId || !currentDeviceId) {
+          return;
+        }
+        const now = Date.now();
+        const startedAtMs = utteranceStartedAt ?? now - 1;
+        const startedOffsetMs = Math.max(0, startedAtMs - sessionStartedAtRef.current);
+        const endedOffsetMs = Math.max(startedOffsetMs, now - sessionStartedAtRef.current);
+        await postJson(`/api/conversations/${conversationId}/utterances`, {
+          deviceId: currentDeviceId,
+          sourceLanguage: savedSourceLang,
+          targetLanguage: savedTargetLang,
+          sourceText,
+          translatedText,
+          startedOffsetMs,
+          endedOffsetMs,
+        });
+      },
+      onError: (messageKey) => setErrorMessage(t(uiLanguageRef.current, messageKey)),
+      setPhase: (phase) => {
+        if (phase === "finalizing") {
+          setState((current) => (current === "speaking" ? "finalizing" : current));
+        } else if (phase === "saving") {
+          setState("saving");
+        } else {
+          setState((current) => (current === "saving" || current === "finalizing" ? "listening" : current));
+        }
+      },
+    });
+
+    await finalize();
+  }, [reset]);
+
+  // Dispatches to the v2 flow when the connected client supports it
+  // (capability check, not an engine-option check — MockTranslationClient
+  // never implements commitUtterance, so mock mode always takes the v1 path
+  // below regardless of the translationEngine setting).
+  const handleFinalize = useCallback(() => {
+    if (clientRef.current?.commitUtterance) {
+      void handleFinalizeV2();
+      return;
+    }
+    handleFinalizeV1();
+  }, [handleFinalizeV1, handleFinalizeV2]);
 
   const silenceDetector = useSilenceDetector({
     silenceDurationMs,
@@ -311,6 +390,7 @@ export function useTranslationSession(
       setErrorMessage(t(uiLanguageRef.current, "履歴を保存できませんでした"));
     }
 
+    const translationEngine = options.translationEngine ?? "v1";
     const forceMock = clientEnv.NEXT_PUBLIC_ENABLE_MOCK_TRANSLATION;
     let clientSecret = "mock";
     let useMockClient = forceMock;
@@ -320,6 +400,7 @@ export function useTranslationSession(
         const tokenResult = (await postJson("/api/realtime/token", {
           targetLanguage,
           deviceId,
+          engine: translationEngine,
         })) as { data: { clientSecret: string | null; mock: boolean } };
         useMockClient = tokenResult.data.mock;
         clientSecret = tokenResult.data.clientSecret ?? "mock";
@@ -399,7 +480,9 @@ export function useTranslationSession(
 
     const client = useMockClient
       ? new MockTranslationClient(callbacks)
-      : new RealtimeTranslationClient(callbacks);
+      : translationEngine === "v2"
+        ? new RealtimeTranscriptionClient(callbacks)
+        : new RealtimeTranslationClient(callbacks);
 
     clientRef.current = client;
 
@@ -413,6 +496,7 @@ export function useTranslationSession(
     appendTranslation,
     autoDetect,
     deviceId,
+    options.translationEngine,
     releaseMicrophone,
     reset,
     requestMicrophone,

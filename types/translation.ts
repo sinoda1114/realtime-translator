@@ -67,8 +67,21 @@ export interface TranslationClientConnectInput {
   targetLanguage: TargetLanguage;
 }
 
+export interface TranscriptionCommitResult {
+  transcript: string;
+  source: "completed" | "fallback";
+}
+
 export interface TranslationClient {
   connect(input: TranslationClientConnectInput): Promise<void>;
   updateTargetLanguage(language: TargetLanguage): void;
   close(): Promise<void>;
+  /**
+   * v2 (transcription + server-side translate) clients only. Commits the
+   * current audio buffer and resolves with the authoritative transcript for
+   * the utterance that just ended. Its presence is the capability check
+   * useTranslationSession uses to route finalize through the v2 flow — the
+   * v1 client and MockTranslationClient don't implement it.
+   */
+  commitUtterance?(): Promise<TranscriptionCommitResult>;
 }

@@ -9,6 +9,16 @@ export type ThemeMode = "light" | "dark";
  * view the screen from the same angle — no rotation, no duplication.
  */
 export type ViewMode = "facing" | "shared";
+/**
+ * "v1": the translation-endpoint client (gpt-realtime-translate). Streams
+ * source + translated text together, but the API has no per-utterance id,
+ * so the two streams can drift out of sync under real-world conditions.
+ * "v2" (experimental): a transcription-only session (gpt-realtime-whisper)
+ * paired with a server-side text translation call per finalized utterance —
+ * slower (translation appears ~1-2s after the utterance ends, not live) but
+ * the source/translation pairing is guaranteed correct.
+ */
+export type TranslationEngine = "v1" | "v2";
 
 export interface LocalSettings {
   fontSize: FontSizePreset;
@@ -18,4 +28,5 @@ export interface LocalSettings {
   theme: ThemeMode;
   viewMode: ViewMode;
   showSourceText: boolean;
+  translationEngine: TranslationEngine;
 }
