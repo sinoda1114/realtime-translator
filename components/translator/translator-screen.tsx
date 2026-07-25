@@ -67,6 +67,7 @@ export function TranslatorScreen() {
             sourceLanguage={session.sourceLanguage}
             sourceText={session.sourceText}
             translatedText={session.translatedText}
+            completedUtterances={session.completedUtterances}
             isSpeaking={session.isSpeaking}
             isFinal={false}
             fontSize={settings.fontSize}
@@ -149,6 +150,7 @@ export function TranslatorScreen() {
           sourceLanguage={session.sourceLanguage}
           sourceText={session.sourceText}
           translatedText={session.translatedText}
+          completedUtterances={session.completedUtterances}
           isSpeaking={session.isSpeaking}
           isFinal={false}
           fontSize={settings.fontSize}

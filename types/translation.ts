@@ -23,6 +23,13 @@ export type RealtimeConnectionState =
   | "disconnected"
   | "error";
 
+export interface CompletedUtterance {
+  id: string;
+  sourceLanguage: SourceLanguage;
+  sourceText: string;
+  translatedText: string;
+}
+
 export interface ActiveUtterance {
   sourceLanguage: SourceLanguage;
   targetLanguage: TargetLanguage;
