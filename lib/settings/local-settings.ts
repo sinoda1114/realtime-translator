@@ -8,12 +8,14 @@ export const DEFAULT_SETTINGS: LocalSettings = {
   autoDetectDefault: false,
   uiLanguage: "ja",
   theme: "light",
+  viewMode: "facing",
 };
 
 const VALID_FONT_SIZES = new Set(["small", "medium", "large", "extra-large"]);
 const VALID_SILENCE_DURATIONS = new Set<SilenceDurationMs>([600, 900, 1200, 1500]);
 const VALID_UI_LANGUAGES = new Set(["ja", "en"]);
 const VALID_THEMES = new Set(["light", "dark"]);
+const VALID_VIEW_MODES = new Set(["facing", "shared"]);
 
 export function parseStoredSettings(raw: string | null): LocalSettings {
   if (!raw) {
@@ -44,6 +46,10 @@ export function parseStoredSettings(raw: string | null): LocalSettings {
         typeof parsed.theme === "string" && VALID_THEMES.has(parsed.theme)
           ? (parsed.theme as LocalSettings["theme"])
           : DEFAULT_SETTINGS.theme,
+      viewMode:
+        typeof parsed.viewMode === "string" && VALID_VIEW_MODES.has(parsed.viewMode)
+          ? (parsed.viewMode as LocalSettings["viewMode"])
+          : DEFAULT_SETTINGS.viewMode,
     };
   } catch {
     return DEFAULT_SETTINGS;
