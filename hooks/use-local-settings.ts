@@ -19,8 +19,16 @@ export function useLocalSettings(): UseLocalSettingsResult {
   useEffect(() => {
     // Read localStorage after mount to avoid an SSR/client hydration mismatch;
     // the initial render intentionally matches the server-rendered defaults.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSettings(parseStoredSettings(window.localStorage.getItem(SETTINGS_STORAGE_KEY)));
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (raw) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSettings(parseStoredSettings(raw));
+      return;
+    }
+    // First-ever visit: resolve the theme from the OS/browser preference
+    // instead of hardcoding light, then persist it as the explicit choice.
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setSettings({ ...DEFAULT_SETTINGS, theme: prefersDark ? "dark" : "light" });
   }, []);
 
   useEffect(() => {
@@ -28,6 +36,12 @@ export function useLocalSettings(): UseLocalSettingsResult {
     // with the client-only stored preference for assistive tech / browser UI.
     document.documentElement.lang = settings.uiLanguage;
   }, [settings.uiLanguage]);
+
+  useEffect(() => {
+    // tokens.css reads this attribute to force light/dark regardless of the
+    // OS-level prefers-color-scheme media query.
+    document.documentElement.dataset.theme = settings.theme;
+  }, [settings.theme]);
 
   const updateSettings = useCallback((partial: Partial<LocalSettings>) => {
     setSettings((current) => {

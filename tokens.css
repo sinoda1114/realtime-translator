@@ -61,8 +61,12 @@
   --radius-input: 0.75rem;
 }
 
+/* Dark palette applies when the OS prefers dark (unless the user
+   explicitly picked light via the theme toggle), or whenever the user
+   explicitly picked dark — [data-theme] is set client-side by
+   useLocalSettings once the stored/resolved preference is known. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --color-paper: oklch(16% 0.014 232);
     --color-paper-2: oklch(20% 0.014 232);
     --color-paper-3: oklch(25% 0.014 232);
@@ -77,4 +81,20 @@
     --color-danger: oklch(66% 0.17 25);
     --color-danger-ink: oklch(16% 0.014 25);
   }
+}
+
+:root[data-theme="dark"] {
+  --color-paper: oklch(16% 0.014 232);
+  --color-paper-2: oklch(20% 0.014 232);
+  --color-paper-3: oklch(25% 0.014 232);
+  --color-ink: oklch(94% 0.01 232);
+  --color-ink-2: oklch(78% 0.012 232);
+  --color-rule: oklch(32% 0.014 232);
+  --color-rule-2: oklch(26% 0.014 232);
+  --color-muted: oklch(62% 0.012 232);
+  --color-accent: oklch(68% 0.16 232);
+  --color-accent-ink: oklch(16% 0.014 232);
+  --color-focus: oklch(70% 0.2 232);
+  --color-danger: oklch(66% 0.17 25);
+  --color-danger-ink: oklch(16% 0.014 25);
 }

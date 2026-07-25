@@ -7,11 +7,13 @@ export const DEFAULT_SETTINGS: LocalSettings = {
   silenceDurationMs: 900,
   autoDetectDefault: false,
   uiLanguage: "ja",
+  theme: "light",
 };
 
 const VALID_FONT_SIZES = new Set(["small", "medium", "large", "extra-large"]);
 const VALID_SILENCE_DURATIONS = new Set<SilenceDurationMs>([600, 900, 1200, 1500]);
 const VALID_UI_LANGUAGES = new Set(["ja", "en"]);
+const VALID_THEMES = new Set(["light", "dark"]);
 
 export function parseStoredSettings(raw: string | null): LocalSettings {
   if (!raw) {
@@ -38,6 +40,10 @@ export function parseStoredSettings(raw: string | null): LocalSettings {
         typeof parsed.uiLanguage === "string" && VALID_UI_LANGUAGES.has(parsed.uiLanguage)
           ? (parsed.uiLanguage as LocalSettings["uiLanguage"])
           : DEFAULT_SETTINGS.uiLanguage,
+      theme:
+        typeof parsed.theme === "string" && VALID_THEMES.has(parsed.theme)
+          ? (parsed.theme as LocalSettings["theme"])
+          : DEFAULT_SETTINGS.theme,
     };
   } catch {
     return DEFAULT_SETTINGS;

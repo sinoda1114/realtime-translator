@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { FONT_SIZE_TOKEN } from "@/lib/settings/local-settings";
-import { formatPaneAriaLabel, t } from "@/lib/i18n/translate";
+import { formatPaneAriaLabel, sourcePlaceholder, translatedPlaceholder } from "@/lib/i18n/translate";
 import type { SourceLanguage } from "@/types/translation";
 import type { FontSizePreset, UiLanguage } from "@/types/settings";
 import { TranscriptText } from "./transcript-text";
@@ -68,7 +68,7 @@ export function TranslationPane({
           <TranscriptText
             text={sourceText}
             isSpeaking={isSpeaking}
-            emptyPlaceholder={t(uiLanguage, "話すと原文が表示されます")}
+            emptyPlaceholder={sourcePlaceholder(sourceLanguage)}
           />
         </div>
         <div
@@ -78,7 +78,7 @@ export function TranslationPane({
           <TranscriptText
             text={translatedText}
             isSpeaking={isSpeaking}
-            emptyPlaceholder={t(uiLanguage, "翻訳がここに表示されます")}
+            emptyPlaceholder={translatedPlaceholder(sourceLanguage)}
           />
         </div>
       </div>

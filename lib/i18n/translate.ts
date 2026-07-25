@@ -21,8 +21,8 @@ const EN: Record<string, string> = {
   履歴: "History",
   設定: "Settings",
   ユーティリティ: "Utilities",
-  話すと原文が表示されます: "The original text appears here as you speak",
-  翻訳がここに表示されます: "The translation appears here",
+  ダークモードに切り替える: "Switch to dark mode",
+  ライトモードに切り替える: "Switch to light mode",
 
   // Errors
   マイクの利用が許可されていません: "Microphone access was denied",
@@ -122,4 +122,26 @@ export function formatDuration(uiLanguage: UiLanguage, startedAt: number, endedA
 
 export function localeFor(uiLanguage: UiLanguage): string {
   return uiLanguage === "en" ? "en-US" : "ja-JP";
+}
+
+const SOURCE_GUIDANCE: Record<"ja" | "en", string> = {
+  ja: "話すと原文が表示されます",
+  en: "Speak to see the original text here",
+};
+
+const TRANSLATED_GUIDANCE: Record<"ja" | "en", string> = {
+  ja: "翻訳がここに表示されます",
+  en: "The translation appears here",
+};
+
+// The empty-state placeholders preview what a real utterance will look
+// like — source text in the pane's own language, translation in the
+// other language — so they're keyed off sourceLanguage, not uiLanguage.
+export function sourcePlaceholder(sourceLanguage: "ja" | "en"): string {
+  return SOURCE_GUIDANCE[sourceLanguage];
+}
+
+export function translatedPlaceholder(sourceLanguage: "ja" | "en"): string {
+  const targetLanguage = sourceLanguage === "ja" ? "en" : "ja";
+  return TRANSLATED_GUIDANCE[targetLanguage];
 }

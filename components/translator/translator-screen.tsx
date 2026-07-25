@@ -18,7 +18,7 @@ function isInactiveState(state: TranslationSessionState): boolean {
 }
 
 export function TranslatorScreen() {
-  const { settings } = useLocalSettings();
+  const { settings, updateSettings } = useLocalSettings();
   const session = useTranslationSession({
     silenceDurationMs: settings.silenceDurationMs,
     autoDetectDefault: settings.autoDetectDefault,
@@ -72,13 +72,19 @@ export function TranslatorScreen() {
             controlsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
-          <div className="flex w-full items-center justify-between gap-3 overflow-hidden pt-1">
+          <div className="flex w-full items-center justify-between gap-3 overflow-hidden">
             <LanguageControls
               sourceLanguage={session.sourceLanguage}
               disabled={isControlsDisabled}
               onSelectLanguage={session.setSourceLanguage}
             />
-            <TopNav uiLanguage={settings.uiLanguage} />
+            <TopNav
+              uiLanguage={settings.uiLanguage}
+              theme={settings.theme}
+              onToggleTheme={() =>
+                updateSettings({ theme: settings.theme === "dark" ? "light" : "dark" })
+              }
+            />
           </div>
         </div>
 
@@ -96,7 +102,7 @@ export function TranslatorScreen() {
             controlsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
-          <div className="flex flex-col items-center gap-2 overflow-hidden pt-1">
+          <div className="flex flex-col items-center gap-2 overflow-hidden">
             <StatusBar
               uiLanguage={settings.uiLanguage}
               errorMessage={session.errorMessage}
