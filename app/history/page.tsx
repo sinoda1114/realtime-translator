@@ -5,10 +5,13 @@ import { AppShell } from "@/components/ui/app-shell";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { ConversationList } from "@/components/history/conversation-list";
 import { useDeviceId } from "@/hooks/use-device-id";
+import { useLocalSettings } from "@/hooks/use-local-settings";
+import { t } from "@/lib/i18n/translate";
 import type { ConversationSummary } from "@/types/conversation";
 
 export default function HistoryPage() {
   const deviceId = useDeviceId();
+  const { settings } = useLocalSettings();
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +29,11 @@ export default function HistoryPage() {
       setConversations(body.data);
       setError(null);
     } catch {
-      setError("履歴を取得できませんでした");
+      setError(t(settings.uiLanguage, "履歴を取得できませんでした"));
     } finally {
       setIsLoading(false);
     }
-  }, [deviceId]);
+  }, [deviceId, settings.uiLanguage]);
 
   useEffect(() => {
     // Async data fetch on mount; setState happens after an awaited network call,
@@ -44,7 +47,9 @@ export default function HistoryPage() {
       if (!deviceId) {
         return;
       }
-      const confirmed = window.confirm("この会話を削除しますか？元に戻せません。");
+      const confirmed = window.confirm(
+        t(settings.uiLanguage, "この会話を削除しますか？元に戻せません。"),
+      );
       if (!confirmed) {
         return;
       }
@@ -59,21 +64,25 @@ export default function HistoryPage() {
         }
         setConversations((current) => current?.filter((c) => c.id !== conversationId) ?? null);
       } catch {
-        setError("削除に失敗しました");
+        setError(t(settings.uiLanguage, "削除に失敗しました"));
       }
     },
-    [deviceId],
+    [deviceId, settings.uiLanguage],
   );
 
   return (
-    <AppShell title="履歴">
+    <AppShell title="履歴" uiLanguage={settings.uiLanguage}>
       {error && <ErrorMessage message={error} />}
       {isLoading ? (
         <div className="p-4 text-center text-[length:var(--text-sm)] text-[var(--color-muted)]">
-          読み込み中...
+          {t(settings.uiLanguage, "読み込み中...")}
         </div>
       ) : (
-        <ConversationList conversations={conversations ?? []} onDelete={handleDelete} />
+        <ConversationList
+          conversations={conversations ?? []}
+          uiLanguage={settings.uiLanguage}
+          onDelete={handleDelete}
+        />
       )}
     </AppShell>
   );

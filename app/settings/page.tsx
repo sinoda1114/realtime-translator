@@ -7,6 +7,7 @@ import { SettingsForm } from "@/components/settings/settings-form";
 import { useDeviceId } from "@/hooks/use-device-id";
 import { useLocalSettings } from "@/hooks/use-local-settings";
 import { clientEnv } from "@/lib/env";
+import { formatDeletedNotice, t } from "@/lib/i18n/translate";
 
 export default function SettingsPage() {
   const { settings, updateSettings } = useLocalSettings();
@@ -18,7 +19,9 @@ export default function SettingsPage() {
     if (!deviceId) {
       return;
     }
-    const confirmed = window.confirm("すべての履歴を削除しますか？元に戻せません。");
+    const confirmed = window.confirm(
+      t(settings.uiLanguage, "すべての履歴を削除しますか？元に戻せません。"),
+    );
     if (!confirmed) {
       return;
     }
@@ -31,15 +34,15 @@ export default function SettingsPage() {
       if (!body.success) {
         throw new Error();
       }
-      setNotice(`${body.data.deletedCount}件の履歴を削除しました`);
+      setNotice(formatDeletedNotice(settings.uiLanguage, body.data.deletedCount));
       setError(null);
     } catch {
-      setError("削除に失敗しました");
+      setError(t(settings.uiLanguage, "削除に失敗しました"));
     }
   };
 
   return (
-    <AppShell title="設定">
+    <AppShell title="設定" uiLanguage={settings.uiLanguage}>
       {error && <ErrorMessage message={error} />}
       {notice && (
         <p className="p-2 text-center text-[length:var(--text-sm)] font-medium text-[var(--color-accent)]">

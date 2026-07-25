@@ -23,6 +23,12 @@ export function useLocalSettings(): UseLocalSettingsResult {
     setSettings(parseStoredSettings(window.localStorage.getItem(SETTINGS_STORAGE_KEY)));
   }, []);
 
+  useEffect(() => {
+    // The <html lang> attribute is server-rendered as "ja"; keep it in sync
+    // with the client-only stored preference for assistive tech / browser UI.
+    document.documentElement.lang = settings.uiLanguage;
+  }, [settings.uiLanguage]);
+
   const updateSettings = useCallback((partial: Partial<LocalSettings>) => {
     setSettings((current) => {
       const next = { ...current, ...partial };

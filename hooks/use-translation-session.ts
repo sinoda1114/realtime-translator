@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getTargetLanguage } from "@/lib/translation/direction";
+import { formatAutoDetectNotice, t } from "@/lib/i18n/translate";
 import {
   createAutoDetectState,
   detectLanguage,
@@ -26,12 +27,14 @@ import type {
   TranslationClient,
   TranslationSessionState,
 } from "@/types/translation";
+import type { UiLanguage } from "@/types/settings";
 
 const DEFAULT_SILENCE_DURATION_MS = 900;
 
 export interface UseTranslationSessionOptions {
   silenceDurationMs?: number;
   autoDetectDefault?: boolean;
+  uiLanguage?: UiLanguage;
 }
 
 export interface UseTranslationSessionResult {
@@ -75,6 +78,7 @@ export function useTranslationSession(
   options: UseTranslationSessionOptions = {},
 ): UseTranslationSessionResult {
   const silenceDurationMs = options.silenceDurationMs ?? DEFAULT_SILENCE_DURATION_MS;
+  const uiLanguage: UiLanguage = options.uiLanguage ?? "ja";
   const [state, setState] = useState<TranslationSessionState>("idle");
   const [sourceLanguage, setSourceLanguageState] = useState<SourceLanguage>("ja");
   const [autoDetect, setAutoDetect] = useState(options.autoDetectDefault ?? false);
@@ -94,6 +98,7 @@ export function useTranslationSession(
   const sourceLanguageRef = useRef(sourceLanguage);
   const deviceIdRef = useRef(deviceId);
   const stateRef = useRef(state);
+  const uiLanguageRef = useRef(uiLanguage);
   const autoDetectStateRef = useRef<AutoDetectState>(createAutoDetectState());
   const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -101,7 +106,29 @@ export function useTranslationSession(
     sourceLanguageRef.current = sourceLanguage;
     deviceIdRef.current = deviceId;
     stateRef.current = state;
+    uiLanguageRef.current = uiLanguage;
   });
+
+  useEffect(() => {
+    // useLocalSettings starts with a default (false) and only picks up the
+    // real stored value after mount, so the useState initializer above
+    // captures a stale default. Re-sync while idle so a saved "on" default
+    // actually takes effect; never touch it mid-session.
+    if (state === "idle" || state === "stopped" || state === "error") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAutoDetect(options.autoDetectDefault ?? false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.autoDetectDefault]);
+
+  useEffect(() => {
+    // Error/notice text is localized at the moment it's produced; if the UI
+    // language changes while one is showing, clear it rather than leave a
+    // stale-language message on screen.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setErrorMessage(null);
+    setAutoDetectNotice(null);
+  }, [uiLanguage]);
 
   const targetLanguage = getTargetLanguage(sourceLanguage);
 
@@ -117,7 +144,7 @@ export function useTranslationSession(
       return;
     }
     if (completeness === "partial") {
-      setErrorMessage("原文または翻訳が途中で終了しました");
+      setErrorMessage(t(uiLanguageRef.current, "原文または翻訳が途中で終了しました"));
       setState((current) => (current === "speaking" ? "listening" : current));
       return;
     }
@@ -146,7 +173,7 @@ export function useTranslationSession(
       endedOffsetMs,
     })
       .catch(() => {
-        setErrorMessage("履歴を保存できませんでした");
+        setErrorMessage(t(uiLanguageRef.current, "履歴を保存できませんでした"));
       })
       .finally(() => {
         setState((current) => (current === "saving" || current === "finalizing" ? "listening" : current));
@@ -161,7 +188,7 @@ export function useTranslationSession(
     },
     onFinalize: handleFinalize,
     onError: (message) => {
-      setErrorMessage(message);
+      setErrorMessage(t(uiLanguageRef.current, message));
     },
   });
 
@@ -177,7 +204,7 @@ export function useTranslationSession(
       return;
     }
     if (!deviceId) {
-      setErrorMessage("端末IDを準備中です。もう一度お試しください");
+      setErrorMessage(t(uiLanguageRef.current, "端末IDを準備中です。もう一度お試しください"));
       return;
     }
 
@@ -193,7 +220,7 @@ export function useTranslationSession(
     try {
       stream = await requestMicrophone();
     } catch (error: unknown) {
-      setErrorMessage(mapPermissionError(error));
+      setErrorMessage(t(uiLanguageRef.current, mapPermissionError(error)));
       setState("error");
       return;
     }
@@ -209,7 +236,7 @@ export function useTranslationSession(
       conversationIdRef.current = (created as { data: { id: string } }).data.id;
     } catch {
       conversationIdRef.current = null;
-      setErrorMessage("履歴を保存できませんでした");
+      setErrorMessage(t(uiLanguageRef.current, "履歴を保存できませんでした"));
     }
 
     const forceMock = clientEnv.NEXT_PUBLIC_ENABLE_MOCK_TRANSLATION;
@@ -225,7 +252,7 @@ export function useTranslationSession(
         useMockClient = tokenResult.data.mock;
         clientSecret = tokenResult.data.clientSecret ?? "mock";
       } catch {
-        setErrorMessage("翻訳セッションを開始できません");
+        setErrorMessage(t(uiLanguageRef.current, "翻訳セッションを開始できません"));
         setState("error");
         releaseMicrophone();
         return;
@@ -246,13 +273,13 @@ export function useTranslationSession(
           setState("listening");
           silenceDetector.start(stream);
         } else if (connectionState === "disconnected" && stateRef.current !== "stopping") {
-          setErrorMessage("接続が切れました");
+          setErrorMessage(t(uiLanguageRef.current, "接続が切れました"));
           setState("error");
           void teardown();
         }
       },
       onError: (error: { message: string }) => {
-        setErrorMessage(error.message);
+        setErrorMessage(t(uiLanguageRef.current, error.message));
         setState("error");
         void teardown();
       },
@@ -339,10 +366,10 @@ export function useTranslationSession(
     autoDetectStateRef.current = result.state;
 
     if (result.confirmed && result.confirmed !== sourceLanguageRef.current) {
-      const previousLabel = sourceLanguageRef.current === "ja" ? "日本語" : "English";
-      const nextLabel = result.confirmed === "ja" ? "日本語" : "English";
-      switchLanguage(result.confirmed);
-      setAutoDetectNotice(`自動判定: ${previousLabel} から ${nextLabel} に切り替えました`);
+      const fromLanguage = sourceLanguageRef.current;
+      const toLanguage = result.confirmed;
+      switchLanguage(toLanguage);
+      setAutoDetectNotice(formatAutoDetectNotice(uiLanguageRef.current, fromLanguage, toLanguage));
       if (noticeTimeoutRef.current) {
         clearTimeout(noticeTimeoutRef.current);
       }

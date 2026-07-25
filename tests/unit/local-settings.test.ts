@@ -15,12 +15,14 @@ describe("parseStoredSettings", () => {
       fontSize: "large",
       silenceDurationMs: 1200,
       autoDetectDefault: true,
+      uiLanguage: "en",
     });
 
     expect(parseStoredSettings(stored)).toEqual({
       fontSize: "large",
       silenceDurationMs: 1200,
       autoDetectDefault: true,
+      uiLanguage: "en",
     });
   });
 
@@ -29,6 +31,7 @@ describe("parseStoredSettings", () => {
       fontSize: "gigantic",
       silenceDurationMs: 42,
       autoDetectDefault: "yes",
+      uiLanguage: "fr",
     });
 
     expect(parseStoredSettings(stored)).toEqual(DEFAULT_SETTINGS);
