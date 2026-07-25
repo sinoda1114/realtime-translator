@@ -34,6 +34,20 @@ describe("detectLanguage", () => {
     expect(detectLanguage("uh").language).toBe("unknown");
   });
 
+  test("holds as unknown for short Latin loanwords that can appear mid-Japanese-sentence", () => {
+    // "WiFi", "AI", "Zoom", brand names, etc. are common inside otherwise
+    // Japanese speech and must not be mistaken for a language switch.
+    expect(detectLanguage("WiFi").language).toBe("unknown");
+    expect(detectLanguage("Zoom").language).toBe("unknown");
+  });
+
+  test("detects English for short genuine replies", () => {
+    // Short standalone English replies ("Hello", "Sorry") must still be
+    // detectable so auto-detect can flip en->ja for brief responses.
+    expect(detectLanguage("Hello").language).toBe("en");
+    expect(detectLanguage("Sorry").language).toBe("en");
+  });
+
   test("returns a confidence between 0 and 1", () => {
     const detection = detectLanguage("Hello there");
     expect(detection.confidence).toBeGreaterThan(0);

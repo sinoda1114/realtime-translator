@@ -13,6 +13,7 @@ export class RealtimeTranslationClient implements TranslationClient {
   private readonly callbacks: TranslationClientCallbacks;
   private peerConnection: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
+  private readonly warnedUnhandledEventTypes = new Set<string>();
 
   constructor(callbacks: TranslationClientCallbacks) {
     this.callbacks = callbacks;
@@ -126,6 +127,16 @@ export class RealtimeTranslationClient implements TranslationClient {
         break;
       }
       default:
+        // Diagnostic: if the real API sends event types/shapes we don't
+        // recognize, we currently drop them silently — this surfaces them
+        // in the browser console (this class only ever runs client-side)
+        // so a mismatch against our assumed event schema is visible. Warn
+        // once per distinct type per connection to avoid log spam if an
+        // unhandled event fires repeatedly (e.g. a heartbeat/ping type).
+        if (!this.warnedUnhandledEventTypes.has(event.type)) {
+          this.warnedUnhandledEventTypes.add(event.type);
+          logger.warn("realtime.unhandled_event", { type: event.type });
+        }
         break;
     }
   }
