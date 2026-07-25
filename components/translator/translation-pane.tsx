@@ -25,11 +25,6 @@ interface TranslationPaneProps {
   ariaHidden?: boolean;
 }
 
-const LANGUAGE_LABEL: Record<SourceLanguage, string> = {
-  ja: "日本語",
-  en: "English",
-};
-
 export function TranslationPane({
   orientation,
   sourceLanguage,
@@ -60,9 +55,6 @@ export function TranslationPane({
       aria-label={formatPaneAriaLabel(uiLanguage, sourceLanguage)}
       aria-hidden={ariaHidden}
     >
-      <span className="text-[length:var(--text-xs)] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-        {LANGUAGE_LABEL[sourceLanguage]}
-      </span>
       <div ref={scrollRef} className="max-h-[11em] overflow-y-auto">
         <div className="font-bold leading-[1.25]" style={{ fontSize: subtitleSize }}>
           <TranscriptText

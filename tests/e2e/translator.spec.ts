@@ -60,14 +60,16 @@ test("shows the source language rotated 180 degrees in the top pane", async ({ p
   await expect(topPane).toHaveClass(/rotate-180/);
 });
 
-test("can enable auto-detect and still stream subtitles normally", async ({ page }) => {
-  await stubMicrophoneTone(page);
-
-  // Auto-detect's toggle now lives in /settings (as the default-on-launch
-  // switch), not on the main translator screen.
+test("auto-detect is on by default and streaming still works", async ({ page }) => {
+  // Auto-detect defaults to on so realtime conversation works without
+  // manual language taps; verify the settings switch reflects that and
+  // that streaming still works with it enabled.
   await page.goto("/settings");
-  await page.getByRole("switch", { name: "起動時に自動判定を有効にする" }).click({ force: true });
+  await expect(
+    page.getByRole("switch", { name: "起動時に自動判定を有効にする" }),
+  ).toBeChecked();
 
+  await stubMicrophoneTone(page);
   await page.goto("/");
   await page.getByRole("button", { name: "翻訳を開始" }).click();
 

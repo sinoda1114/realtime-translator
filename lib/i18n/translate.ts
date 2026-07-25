@@ -18,6 +18,7 @@ const EN: Record<string, string> = {
   // Translator screen chrome
   操作パネルを隠す: "Hide controls",
   操作パネルを表示する: "Show controls",
+  "翻訳中 - 操作パネルを表示する": "Translating - show controls",
   履歴: "History",
   設定: "Settings",
   ユーティリティ: "Utilities",

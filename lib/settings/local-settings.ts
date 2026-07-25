@@ -5,7 +5,11 @@ export const SETTINGS_STORAGE_KEY = "realtime-translator:settings";
 export const DEFAULT_SETTINGS: LocalSettings = {
   fontSize: "medium",
   silenceDurationMs: 900,
-  autoDetectDefault: false,
+  // The core value proposition is realtime bidirectional translation
+  // without manual language taps; auto-detect defaults on so that "just
+  // talk" works out of the box. Manual pills remain as a correction tool
+  // when detection misfires (short utterances, names, numbers, etc).
+  autoDetectDefault: true,
   uiLanguage: "ja",
   theme: "light",
   viewMode: "facing",
