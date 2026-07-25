@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Realtime Translator</title>
+  <rect width="64" height="64" rx="14" fill="#F7FCFC"/>
+  <path d="M10 13h27a8 8 0 0 1 8 8v9a8 8 0 0 1-8 8H25l-8 7 2-7h-1a8 8 0 0 1-8-8v-9a8 8 0 0 1 8-8Z" fill="#007982"/>
+  <path d="M24 28h14M24 33h9" fill="none" stroke="#F7FCFC" stroke-linecap="round" stroke-width="3"/>
+  <path d="M31 32h15a8 8 0 0 1 8 8v3a8 8 0 0 1-8 8h-2l2 5-7-5h-8a8 8 0 0 1-8-8v-3a8 8 0 0 1 8-8Z" fill="#23383B"/>
+  <path d="M34 41h15M34 46h10" fill="none" stroke="#F7FCFC" stroke-linecap="round" stroke-width="3"/>
+</svg>
