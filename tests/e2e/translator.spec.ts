@@ -77,6 +77,25 @@ test("auto-detect is on by default and streaming still works", async ({ page }) 
   await expect(sourceTexts.first()).toBeVisible({ timeout: 10_000 });
 });
 
+test("hides the manual language pills while auto-detect is on, shows them once it's off", async ({
+  page,
+}) => {
+  // Auto-detect (日英会話モード) is the primary way to use this app, so the
+  // manual pills would otherwise be a confusing, purposeless control for
+  // most users. They should only appear once auto-detect is explicitly
+  // turned off and a source language must be set manually.
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "日本語" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "English" })).toHaveCount(0);
+
+  await page.goto("/settings");
+  await page.getByRole("switch", { name: "起動時に自動判定を有効にする" }).click({ force: true });
+
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "日本語" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "English" })).toBeVisible();
+});
+
 test("finalizes and saves an utterance after real silence is detected", async ({ page, baseURL }) => {
   await stubMicrophoneTone(page, { silentAfterMs: 3000 });
   await page.goto("/");
