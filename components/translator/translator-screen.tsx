@@ -49,6 +49,7 @@ export function TranslatorScreen() {
           isMockMode={session.isMockMode}
           errorMessage={session.errorMessage}
           autoDetectNotice={session.autoDetectNotice}
+          currentRms={session.currentRms}
         />
         <div className="flex gap-5 text-[length:var(--text-xs)]">
           <Link
