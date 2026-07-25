@@ -312,6 +312,9 @@ export class RealtimeTranscriptionClient implements TranslationClient {
         break;
       case "input_audio_buffer.committed":
         if (typeof event.item_id === "string") {
+          // Logged because a commit that never resolves is indistinguishable
+          // from one whose ack never arrived — see commit_sent/commit_resolved.
+          logger.info("transcription.committed_received", {});
           this.tracker.noteCommitted(event.item_id);
         } else {
           logger.warn("transcription.committed_missing_item_id", eventShapeFields(event));
@@ -319,6 +322,9 @@ export class RealtimeTranscriptionClient implements TranslationClient {
         break;
       case "conversation.item.input_audio_transcription.completed":
         if (typeof event.item_id === "string" && typeof event.transcript === "string") {
+          logger.info("transcription.completed_received", {
+            chars: String(event.transcript.length),
+          });
           this.tracker.resolveCompleted(event.item_id, event.transcript);
         } else {
           logger.warn("transcription.completed_missing_fields", eventShapeFields(event));
