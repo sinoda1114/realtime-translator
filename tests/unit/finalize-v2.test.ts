@@ -11,6 +11,9 @@ function baseDeps() {
     onError: vi.fn(),
     setPhase: vi.fn(),
     createId: vi.fn().mockReturnValue("fixed-id"),
+    // Instant no-op by default so tests don't pay the real retry delay;
+    // the "retries" describe block overrides this to assert on it directly.
+    delay: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -39,16 +42,52 @@ describe("createV2FinalizeHandler", () => {
     expect(deps.onError).not.toHaveBeenCalled();
   });
 
-  test("reports an error and does not translate/append/save when commitUtterance rejects", async () => {
+  test("retries commitUtterance once after a delay, then reports an error if it fails again", async () => {
     const deps = baseDeps();
     deps.commitUtterance.mockRejectedValue(new Error("DataChannel is not open"));
     const finalize = createV2FinalizeHandler(deps);
 
     await finalize();
 
+    expect(deps.commitUtterance).toHaveBeenCalledTimes(2);
+    expect(deps.delay).toHaveBeenCalledWith(1500);
     expect(deps.translate).not.toHaveBeenCalled();
     expect(deps.appendCompleted).not.toHaveBeenCalled();
     expect(deps.saveUtterance).not.toHaveBeenCalled();
+    expect(deps.onError).toHaveBeenCalledWith("発話の確定に失敗しました");
+    expect(deps.setPhase.mock.calls.map((call) => call[0])).toEqual(["finalizing", "done"]);
+  });
+
+  // The client reconnects a dropped DataChannel in the background (see
+  // transcription-client.ts's scheduleReconnect()); this covers the case
+  // where that reconnect has landed by the time the single retry fires.
+  test("recovers when the retried commitUtterance succeeds after a transient failure", async () => {
+    const deps = baseDeps();
+    deps.commitUtterance
+      .mockRejectedValueOnce(new Error("DataChannel is not open"))
+      .mockResolvedValueOnce({ transcript: "こんにちは", source: "completed" });
+    const finalize = createV2FinalizeHandler(deps);
+
+    await finalize();
+
+    expect(deps.commitUtterance).toHaveBeenCalledTimes(2);
+    expect(deps.onError).not.toHaveBeenCalled();
+    expect(deps.translate).toHaveBeenCalledWith("こんにちは", "ja", "en");
+    expect(deps.appendCompleted).toHaveBeenCalledOnce();
+  });
+
+  // Regression: delay() rejecting used to escape both try/catch blocks and
+  // reject finalizeV2() itself, leaving the caller stuck in "finalizing"
+  // instead of reaching the same error/done handling as a failed retry.
+  test("reports the same commit error if delay() itself rejects", async () => {
+    const deps = baseDeps();
+    deps.commitUtterance.mockRejectedValue(new Error("DataChannel is not open"));
+    deps.delay.mockRejectedValue(new Error("timer setup failed"));
+    const finalize = createV2FinalizeHandler(deps);
+
+    await expect(finalize()).resolves.toBeUndefined();
+
+    expect(deps.commitUtterance).toHaveBeenCalledTimes(1);
     expect(deps.onError).toHaveBeenCalledWith("発話の確定に失敗しました");
     expect(deps.setPhase.mock.calls.map((call) => call[0])).toEqual(["finalizing", "done"]);
   });
