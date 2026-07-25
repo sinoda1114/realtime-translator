@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getTargetLanguage } from "@/lib/translation/direction";
 import { formatAutoDetectNotice, t } from "@/lib/i18n/translate";
 import { appendCompletedUtterance } from "@/lib/translation/completed-utterances";
+import { isTranslationDeltaTooFarAhead } from "@/lib/translation/delta-lead-guard";
 import {
   createAutoDetectState,
   detectLanguage,
@@ -32,6 +33,15 @@ import type {
 import type { UiLanguage } from "@/types/settings";
 
 const DEFAULT_SILENCE_DURATION_MS = 900;
+// The realtime API has no turn/utterance concept of its own — it's a single
+// continuous stream, and translation output can outrun the source transcript
+// (see docs: "translation output and source transcripts may arrive at
+// different speeds"). elapsed_ms is a coarse (~200ms-granularity) timing hint
+// with no per-utterance id, so this can only be an approximate safety valve,
+// not a precise fix: if a translation delta claims to be far ahead of the
+// most recent source delta, it's more likely bleeding in from content we
+// haven't transcribed yet than genuine simultaneous-interpretation lead.
+const TRANSLATION_LEAD_LIMIT_MS = 3000;
 
 export interface UseTranslationSessionOptions {
   silenceDurationMs?: number;
@@ -126,6 +136,20 @@ export function useTranslationSession(
   //   This isn't fully closable without a response/item id to match deltas
   //   against; treat as a residual risk, not a guarantee.
   const acceptDeltasRef = useRef(true);
+  // Tracks the elapsed_ms of the most recent accepted source delta, so a
+  // translation delta that's suspiciously far ahead can be held back — see
+  // TRANSLATION_LEAD_LIMIT_MS above for why this is approximate.
+  const lastSourceElapsedMsRef = useRef<number | null>(null);
+  // Whether a source delta has been accepted for the current utterance yet,
+  // tracked independently of elapsed_ms. elapsed_ms is optional on the wire
+  // type — if it's ever absent (a future API change, a different client
+  // implementation), lastSourceElapsedMsRef would stay null forever, and
+  // gating solely on "is it null" would silently drop every translation
+  // delta even though the original text is right there on screen. This flag
+  // is what "have we seen a source delta at all" actually means; the
+  // elapsed_ms comparison is an additional, best-effort check layered on
+  // top only when timing data is actually available on both sides.
+  const hasSourceDeltaRef = useRef(false);
   useEffect(() => {
     bufferRef.current = buffer;
     sourceLanguageRef.current = sourceLanguage;
@@ -163,6 +187,8 @@ export function useTranslationSession(
     reset();
     utteranceStartedAtRef.current = null;
     acceptDeltasRef.current = false;
+    lastSourceElapsedMsRef.current = null;
+    hasSourceDeltaRef.current = false;
 
     const completeness = getTranscriptBufferCompleteness(snapshot);
     if (completeness === "empty") {
@@ -223,6 +249,8 @@ export function useTranslationSession(
     silenceDurationMs,
     onSpeechStart: () => {
       acceptDeltasRef.current = true;
+      lastSourceElapsedMsRef.current = null;
+      hasSourceDeltaRef.current = false;
       utteranceStartedAtRef.current = Date.now();
       setState("speaking");
     },
@@ -257,6 +285,8 @@ export function useTranslationSession(
     reset();
     setCompletedUtterances([]);
     acceptDeltasRef.current = true;
+    lastSourceElapsedMsRef.current = null;
+    hasSourceDeltaRef.current = false;
 
     let stream: MediaStream;
     try {
@@ -304,14 +334,48 @@ export function useTranslationSession(
     setIsMockSession(useMockClient);
 
     const callbacks = {
-      onSourceDelta: (delta: string) => {
+      onSourceDelta: (delta: string, elapsedMs?: number) => {
         if (!acceptDeltasRef.current) {
           return;
         }
+        hasSourceDeltaRef.current = true;
+        // Clear (not just "leave stale") when this particular delta had no
+        // elapsed_ms — otherwise a later source delta lacking the field
+        // would leave an old timestamp in place, and a translation delta
+        // for that newer content could be wrongly judged "too far ahead" of
+        // stale timing data instead of skipping the lead-time check.
+        lastSourceElapsedMsRef.current = typeof elapsedMs === "number" ? elapsedMs : null;
         appendSource(delta);
       },
-      onTranslationDelta: (delta: string) => {
+      onTranslationDelta: (delta: string, elapsedMs?: number) => {
         if (!acceptDeltasRef.current) {
+          return;
+        }
+        if (!hasSourceDeltaRef.current) {
+          // Nothing has been transcribed for the current utterance yet, so
+          // a translation delta arriving now can't legitimately be
+          // translating anything on screen — it can only be stale content
+          // from whatever utterance just finalized. Without this, the brief
+          // window between onSpeechStart resetting the ref and the first
+          // source delta actually arriving would let exactly the leak this
+          // guard exists to prevent slip through. Deliberately independent
+          // of elapsed_ms — that field is optional on the wire, and gating
+          // on "is the timestamp null" here would drop every translation
+          // whenever elapsed_ms happens to be absent even though the source
+          // text is right there on screen.
+          return;
+        }
+        if (
+          isTranslationDeltaTooFarAhead(
+            lastSourceElapsedMsRef.current,
+            elapsedMs,
+            TRANSLATION_LEAD_LIMIT_MS,
+          )
+        ) {
+          // The translation claims to be far ahead of what we've actually
+          // transcribed so far — more likely leaking in content from speech
+          // we haven't caught up to yet than genuine lead. Drop it rather
+          // than show a translation with no matching original text.
           return;
         }
         appendTranslation(delta);

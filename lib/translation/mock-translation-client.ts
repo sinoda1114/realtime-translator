@@ -98,11 +98,17 @@ export class MockTranslationClient implements TranslationClient {
     const script = scripts[this.scriptIndex % scripts.length];
     this.scriptIndex += 1;
 
+    // Mirrors the real API's elapsed_ms timing hint (resets per utterance)
+    // so consumers that gate on it (e.g. the stale-translation-delta guard
+    // in useTranslationSession) behave the same against mock and real data.
+    let elapsedMs = 0;
+
     for (const delta of script.sourceDeltas) {
       if (this.closed) {
         return;
       }
-      this.callbacks?.onSourceDelta(delta);
+      elapsedMs += DELTA_INTERVAL_MS;
+      this.callbacks?.onSourceDelta(delta, elapsedMs);
       await this.wait(DELTA_INTERVAL_MS);
     }
 
@@ -110,7 +116,8 @@ export class MockTranslationClient implements TranslationClient {
       if (this.closed) {
         return;
       }
-      this.callbacks?.onTranslationDelta(delta);
+      elapsedMs += DELTA_INTERVAL_MS;
+      this.callbacks?.onTranslationDelta(delta, elapsedMs);
       await this.wait(DELTA_INTERVAL_MS);
     }
 
