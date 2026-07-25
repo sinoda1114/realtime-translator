@@ -1,14 +1,11 @@
 "use client";
 
-import { Switch } from "@heroui/react";
 import type { SourceLanguage } from "@/types/translation";
 
 interface LanguageControlsProps {
   sourceLanguage: SourceLanguage;
-  autoDetect: boolean;
   disabled: boolean;
   onSelectLanguage: (language: SourceLanguage) => void;
-  onToggleAutoDetect: (value: boolean) => void;
 }
 
 function LanguagePill({
@@ -42,12 +39,13 @@ function LanguagePill({
   );
 }
 
+// Auto-detect (experimental) has no toggle here anymore — its default is
+// set in /settings (autoDetectDefault) and the underlying detection logic
+// in useTranslationSession still runs when enabled from there.
 export function LanguageControls({
   sourceLanguage,
-  autoDetect,
   disabled,
   onSelectLanguage,
-  onToggleAutoDetect,
 }: LanguageControlsProps) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-3">
@@ -65,16 +63,6 @@ export function LanguageControls({
       >
         English
       </LanguagePill>
-      <Switch isSelected={autoDetect} onChange={onToggleAutoDetect} isDisabled={disabled}>
-        <Switch.Content>
-          <Switch.Control>
-            <Switch.Thumb />
-          </Switch.Control>
-          <span className="text-[length:var(--text-sm)] text-[var(--color-ink-2)]">
-            自動（実験的）
-          </span>
-        </Switch.Content>
-      </Switch>
     </div>
   );
 }

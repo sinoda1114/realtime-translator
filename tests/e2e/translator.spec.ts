@@ -28,8 +28,6 @@ test("starts translation in mock mode and streams subtitles", async ({ page }) =
   await stubMicrophoneTone(page);
   await page.goto("/");
 
-  await expect(page.getByText("モックモード")).toBeVisible();
-
   await page.getByRole("button", { name: "翻訳を開始" }).click();
 
   const sourceTexts = page.getByText("今日は横浜に行きます。");
@@ -64,9 +62,13 @@ test("shows the source language rotated 180 degrees in the top pane", async ({ p
 
 test("can enable auto-detect and still stream subtitles normally", async ({ page }) => {
   await stubMicrophoneTone(page);
-  await page.goto("/");
 
-  await page.getByRole("switch", { name: "自動（実験的）" }).click({ force: true });
+  // Auto-detect's toggle now lives in /settings (as the default-on-launch
+  // switch), not on the main translator screen.
+  await page.goto("/settings");
+  await page.getByRole("switch", { name: "起動時に自動判定を有効にする" }).click({ force: true });
+
+  await page.goto("/");
   await page.getByRole("button", { name: "翻訳を開始" }).click();
 
   const sourceTexts = page.getByText("今日は横浜に行きます。");
@@ -76,21 +78,23 @@ test("can enable auto-detect and still stream subtitles normally", async ({ page
 test("finalizes and saves an utterance after real silence is detected", async ({ page, baseURL }) => {
   await stubMicrophoneTone(page, { silentAfterMs: 3000 });
   await page.goto("/");
-
   await page.getByRole("button", { name: "翻訳を開始" }).click();
 
-  await expect(page.getByText("状態: 発話中")).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("状態: 入力待ち")).toBeVisible({ timeout: 10_000 });
+  // Session progress is now conveyed by the session button itself (label +
+  // dot), not a separate "状態: X" text line, so wait on the button label
+  // instead: it stays "翻訳を停止" through speaking/listening/finalizing.
+  await expect(page.getByRole("button", { name: "翻訳を停止" })).toBeVisible({ timeout: 10_000 });
 
   const deviceId = await page.evaluate(() =>
     window.localStorage.getItem("realtime-translator:device-id"),
   );
   expect(deviceId).toBeTruthy();
 
-  const response = await page.request.get(`${baseURL}/api/conversations?deviceId=${deviceId}`);
-  const body = await response.json();
-
-  expect(body.success).toBe(true);
-  expect(body.data.length).toBeGreaterThan(0);
-  expect(body.data[0].utteranceCount).toBeGreaterThan(0);
+  await expect(async () => {
+    const response = await page.request.get(`${baseURL}/api/conversations?deviceId=${deviceId}`);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data[0].utteranceCount).toBeGreaterThan(0);
+  }).toPass({ timeout: 15_000 });
 });

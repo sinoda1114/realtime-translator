@@ -1,22 +1,22 @@
 /* Hallmark · route: custom (tuned) · macrostructure: Console Split (app) / Index-First+Long Document (content)
  * genre: editorial · vibe: "fresh cross-cultural trust, daylight-legible, quiet confidence"
- * paper: oklch(96.5% 0.010 200) · accent: oklch(50% 0.140 200) · display: Noto Sans JP · body: Noto Sans JP · mono: Geist Mono
+ * paper: oklch(96.5% 0.010 232) · accent: oklch(48% 0.160 232) · display: Noto Sans JP · body: Noto Sans JP · mono: Geist Mono
  * axes: light-paper / humanist-cjk-sans / ocean-hue · design-system: design.md · designed-as-app
  */
 
 :root {
   /* Color — light (default) */
-  --color-paper: oklch(96.5% 0.010 200);
-  --color-paper-2: oklch(93% 0.012 200);
-  --color-paper-3: oklch(89% 0.014 200);
-  --color-ink: oklch(22% 0.014 200);
-  --color-ink-2: oklch(38% 0.012 200);
-  --color-rule: oklch(78% 0.014 200);
-  --color-rule-2: oklch(85% 0.012 200);
-  --color-muted: oklch(50% 0.012 200);
-  --color-accent: oklch(50% 0.14 200);
-  --color-accent-ink: oklch(98% 0.01 200);
-  --color-focus: oklch(52% 0.19 200);
+  --color-paper: oklch(96.5% 0.010 232);
+  --color-paper-2: oklch(93% 0.012 232);
+  --color-paper-3: oklch(89% 0.014 232);
+  --color-ink: oklch(22% 0.014 232);
+  --color-ink-2: oklch(38% 0.012 232);
+  --color-rule: oklch(78% 0.014 232);
+  --color-rule-2: oklch(85% 0.012 232);
+  --color-muted: oklch(50% 0.012 232);
+  --color-accent: oklch(48% 0.16 232);
+  --color-accent-ink: oklch(98% 0.01 232);
+  --color-focus: oklch(50% 0.2 232);
   --color-danger: oklch(52% 0.18 25);
   --color-danger-ink: oklch(98% 0.01 25);
 
@@ -63,17 +63,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-paper: oklch(16% 0.014 200);
-    --color-paper-2: oklch(20% 0.014 200);
-    --color-paper-3: oklch(25% 0.014 200);
-    --color-ink: oklch(94% 0.01 200);
-    --color-ink-2: oklch(78% 0.012 200);
-    --color-rule: oklch(32% 0.014 200);
-    --color-rule-2: oklch(26% 0.014 200);
-    --color-muted: oklch(62% 0.012 200);
-    --color-accent: oklch(68% 0.14 200);
-    --color-accent-ink: oklch(16% 0.014 200);
-    --color-focus: oklch(70% 0.19 200);
+    --color-paper: oklch(16% 0.014 232);
+    --color-paper-2: oklch(20% 0.014 232);
+    --color-paper-3: oklch(25% 0.014 232);
+    --color-ink: oklch(94% 0.01 232);
+    --color-ink-2: oklch(78% 0.012 232);
+    --color-rule: oklch(32% 0.014 232);
+    --color-rule-2: oklch(26% 0.014 232);
+    --color-muted: oklch(62% 0.012 232);
+    --color-accent: oklch(68% 0.16 232);
+    --color-accent-ink: oklch(16% 0.014 232);
+    --color-focus: oklch(70% 0.2 232);
     --color-danger: oklch(66% 0.17 25);
     --color-danger-ink: oklch(16% 0.014 25);
   }

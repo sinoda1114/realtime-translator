@@ -6,6 +6,8 @@ import { AppShell } from "@/components/ui/app-shell";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { UtteranceList } from "@/components/history/utterance-list";
 import { useDeviceId } from "@/hooks/use-device-id";
+import { useLocalSettings } from "@/hooks/use-local-settings";
+import { t } from "@/lib/i18n/translate";
 import type { ConversationDetail } from "@/types/conversation";
 
 interface HistoryDetailPageProps {
@@ -16,6 +18,7 @@ export default function HistoryDetailPage({ params }: HistoryDetailPageProps) {
   const { conversationId } = use(params);
   const router = useRouter();
   const deviceId = useDeviceId();
+  const { settings } = useLocalSettings();
   const [conversation, setConversation] = useState<ConversationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,20 +41,22 @@ export default function HistoryDetailPage({ params }: HistoryDetailPageProps) {
         }
       } catch {
         if (!cancelled) {
-          setError("会話が見つかりませんでした");
+          setError(t(settings.uiLanguage, "会話が見つかりませんでした"));
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [conversationId, deviceId]);
+  }, [conversationId, deviceId, settings.uiLanguage]);
 
   const handleDelete = useCallback(async () => {
     if (!deviceId) {
       return;
     }
-    const confirmed = window.confirm("この会話を削除しますか？元に戻せません。");
+    const confirmed = window.confirm(
+      t(settings.uiLanguage, "この会話を削除しますか？元に戻せません。"),
+    );
     if (!confirmed) {
       return;
     }
@@ -66,23 +71,23 @@ export default function HistoryDetailPage({ params }: HistoryDetailPageProps) {
       }
       router.push("/history");
     } catch {
-      setError("削除に失敗しました");
+      setError(t(settings.uiLanguage, "削除に失敗しました"));
     }
-  }, [conversationId, deviceId, router]);
+  }, [conversationId, deviceId, router, settings.uiLanguage]);
 
   return (
-    <AppShell title="会話詳細">
+    <AppShell title="会話詳細" uiLanguage={settings.uiLanguage}>
       {error && <ErrorMessage message={error} />}
       {conversation && (
         <>
-          <UtteranceList utterances={conversation.utterances} />
+          <UtteranceList utterances={conversation.utterances} uiLanguage={settings.uiLanguage} />
           <div className="flex justify-center p-4">
             <button
               type="button"
               onClick={handleDelete}
               className="min-h-11 rounded-[var(--radius-pill)] bg-[var(--color-danger)]/10 px-6 text-[length:var(--text-sm)] font-medium text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger)]/15"
             >
-              この会話を削除
+              {t(settings.uiLanguage, "この会話を削除")}
             </button>
           </div>
         </>
