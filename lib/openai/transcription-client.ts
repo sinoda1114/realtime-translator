@@ -10,6 +10,8 @@ import { TranscriptionCommitTracker } from "./commit-tracker";
 import { logger } from "@/lib/logger";
 
 const SDP_ENDPOINT = "https://api.openai.com/v1/realtime/calls";
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_BACKOFF_MS = [1_000, 2_000, 4_000];
 
 // Diagnostic helper for malformed-event warnings — deliberately reports only
 // field presence/type and key names, never field values, since delta/
@@ -39,6 +41,19 @@ export class RealtimeTranscriptionClient implements TranslationClient {
   private peerConnection: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
   private readonly warnedUnhandledEventTypes = new Set<string>();
+  private stream: MediaStream | null = null;
+  private refreshClientSecret: (() => Promise<string>) | null = null;
+  private reconnectAttempt = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private isClosing = false;
+  // Bumped by teardownConnection() and captured locally by each
+  // openConnection() call. A pc/dataChannel's event handlers close over the
+  // generation they were created under, so a close/statechange event firing
+  // late — after that connection has already been torn down and replaced —
+  // is recognized as stale (this.connectionGeneration has moved on) and
+  // ignored instead of tearing down or reconnecting a since-established
+  // healthy connection.
+  private connectionGeneration = 0;
 
   constructor(callbacks: TranslationClientCallbacks, options: RealtimeTranscriptionClientOptions = {}) {
     this.callbacks = callbacks;
@@ -46,65 +61,174 @@ export class RealtimeTranscriptionClient implements TranslationClient {
   }
 
   async connect(input: TranslationClientConnectInput): Promise<void> {
-    this.callbacks.onStateChange("connecting");
+    this.stream = input.stream;
+    this.refreshClientSecret = input.refreshClientSecret ?? null;
+    this.isClosing = false;
+    this.reconnectAttempt = 0;
 
     try {
-      const pc = new RTCPeerConnection();
-      this.peerConnection = pc;
-
-      pc.ontrack = (event) => {
-        event.streams.forEach((stream) => {
-          stream.getTracks().forEach((track) => {
-            track.enabled = false;
-          });
-        });
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-          this.callbacks.onStateChange("disconnected");
-        }
-      };
-
-      for (const track of input.stream.getAudioTracks()) {
-        pc.addTrack(track, input.stream);
-      }
-
-      const dataChannel = pc.createDataChannel("oai-events");
-      this.dataChannel = dataChannel;
-      dataChannel.onmessage = (event: MessageEvent<string>) => this.handleServerEvent(event.data);
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      const response = await fetch(SDP_ENDPOINT, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${input.clientSecret}`,
-          "Content-Type": "application/sdp",
-        },
-        body: offer.sdp,
-      });
-
-      if (!response.ok) {
-        logger.error("transcription.sdp_exchange_failed", { status: response.status });
-        throw new Error(`SDP_EXCHANGE_FAILED_${response.status}`);
-      }
-
-      const answerSdp = await response.text();
-      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-
+      await this.openConnection(input.clientSecret);
       this.callbacks.onStateChange("connected");
     } catch {
-      this.dataChannel?.close();
-      this.dataChannel = null;
-      this.peerConnection?.close();
-      this.peerConnection = null;
+      this.teardownConnection();
       this.callbacks.onError({
         code: "REALTIME_API_ERROR",
         message: "翻訳中にエラーが発生しました",
       });
       this.callbacks.onStateChange("error");
+    }
+  }
+
+  // Pure connection setup: creates the peer connection, wires the data
+  // channel, and performs the SDP exchange. Throws on any failure — callers
+  // decide how to react (a fatal error on the initial connect vs. a
+  // retryable attempt during reconnect).
+  private async openConnection(clientSecret: string): Promise<void> {
+    const stream = this.stream;
+    if (!stream) {
+      throw new Error("Cannot connect: no media stream available");
+    }
+
+    this.callbacks.onStateChange("connecting");
+
+    const generation = ++this.connectionGeneration;
+    const pc = new RTCPeerConnection();
+    this.peerConnection = pc;
+
+    pc.ontrack = (event) => {
+      event.streams.forEach((eventStream) => {
+        eventStream.getTracks().forEach((track) => {
+          track.enabled = false;
+        });
+      });
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (this.connectionGeneration !== generation) {
+        return; // stale event from a connection already replaced/torn down
+      }
+      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        this.scheduleReconnect();
+      }
+    };
+
+    for (const track of stream.getAudioTracks()) {
+      pc.addTrack(track, stream);
+    }
+
+    const dataChannel = pc.createDataChannel("oai-events");
+    this.dataChannel = dataChannel;
+    dataChannel.onmessage = (event: MessageEvent<string>) => this.handleServerEvent(event.data);
+    // The data channel can close (SCTP association drop, mobile network
+    // hiccup) without RTCPeerConnection.connectionState ever leaving
+    // "connected" — this was the actual failure mode behind a real-device
+    // "発話の確定に失敗しました" report: source audio kept streaming live
+    // (delta events worked fine) but commitUtterance() found the channel no
+    // longer open by the time silence detection fired. Treat this as an
+    // equally valid reconnect trigger, not just connectionstatechange.
+    //
+    // Also relied on to prevent an initial connect() failure from turning
+    // into a reconnect attempt: connect()'s catch calls teardownConnection()
+    // directly (not scheduleReconnect()), and teardownConnection() bumps
+    // connectionGeneration before closing anything, so the onclose this
+    // triggers is already stale by the time it fires and this check no-ops.
+    dataChannel.onclose = () => {
+      if (this.connectionGeneration !== generation) {
+        return;
+      }
+      this.scheduleReconnect();
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const response = await fetch(SDP_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${clientSecret}`,
+        "Content-Type": "application/sdp",
+      },
+      body: offer.sdp,
+    });
+
+    if (!response.ok) {
+      logger.error("transcription.sdp_exchange_failed", { status: response.status });
+      throw new Error(`SDP_EXCHANGE_FAILED_${response.status}`);
+    }
+
+    const answerSdp = await response.text();
+    await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+  }
+
+  private teardownConnection(): void {
+    // Bump first: the close() calls below can synchronously or
+    // asynchronously fire the pc/dataChannel handlers installed by
+    // openConnection() for this generation. Bumping before closing makes
+    // those handlers recognize themselves as stale and no-op, instead of
+    // reacting to a teardown we ourselves initiated.
+    this.connectionGeneration += 1;
+    this.dataChannel?.close();
+    this.dataChannel = null;
+    this.peerConnection?.close();
+    this.peerConnection = null;
+  }
+
+  // Called when the connection drops mid-session (not via our own close()).
+  // Debounced against reconnectTimer since onconnectionstatechange and
+  // dataChannel.onclose can both fire for the same drop.
+  private scheduleReconnect(): void {
+    if (this.isClosing || this.reconnectTimer) {
+      return;
+    }
+    this.teardownConnection();
+
+    if (!this.refreshClientSecret || this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      logger.warn("transcription.reconnect_exhausted", { attempt: String(this.reconnectAttempt) });
+      this.callbacks.onStateChange("disconnected");
+      return;
+    }
+
+    const attempt = this.reconnectAttempt;
+    this.reconnectAttempt += 1;
+    const delay = RECONNECT_BACKOFF_MS[attempt] ?? RECONNECT_BACKOFF_MS[RECONNECT_BACKOFF_MS.length - 1];
+    logger.warn("transcription.reconnecting", { attempt: String(attempt), delayMs: String(delay) });
+    this.callbacks.onStateChange("reconnecting");
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.attemptReconnect();
+    }, delay);
+  }
+
+  private async attemptReconnect(): Promise<void> {
+    if (this.isClosing || !this.refreshClientSecret) {
+      return;
+    }
+    try {
+      const freshSecret = await this.refreshClientSecret();
+      if (this.isClosing) {
+        // close() ran while awaiting a fresh token — the caller no longer
+        // wants this session, don't spend a round-trip opening a connection
+        // for it.
+        return;
+      }
+      await this.openConnection(freshSecret);
+      if (this.isClosing) {
+        // close() ran while the SDP exchange was in flight. openConnection()
+        // already stood up a live connection by this point — tear it down
+        // instead of reporting "connected" for a session the caller already
+        // asked to stop.
+        this.teardownConnection();
+        return;
+      }
+      this.reconnectAttempt = 0;
+      this.callbacks.onStateChange("connected");
+    } catch {
+      if (this.isClosing) {
+        return;
+      }
+      logger.warn("transcription.reconnect_attempt_failed", { attempt: String(this.reconnectAttempt) });
+      this.scheduleReconnect();
     }
   }
 
@@ -128,11 +252,13 @@ export class RealtimeTranscriptionClient implements TranslationClient {
   }
 
   async close(): Promise<void> {
+    this.isClosing = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.tracker.flushAll();
-    this.dataChannel?.close();
-    this.dataChannel = null;
-    this.peerConnection?.close();
-    this.peerConnection = null;
+    this.teardownConnection();
     this.callbacks.onStateChange("disconnected");
   }
 

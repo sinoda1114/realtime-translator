@@ -12,6 +12,7 @@ const EN: Record<string, string> = {
   翻訳を停止: "Stop Translating",
   マイク許可待ち: "Waiting for mic permission",
   接続中: "Connecting",
+  再接続中: "Reconnecting",
   停止処理中: "Stopping",
   音量: "Volume",
 

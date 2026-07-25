@@ -31,13 +31,23 @@ const BUSY_LABEL_JA: Partial<Record<TranslationSessionState, string>> = {
   stopping: "停止処理中",
 };
 
+// "reconnecting" is deliberately NOT in BUSY_STATES — the button must stay
+// clickable so the user can still stop mid-reconnect — but it still gets a
+// distinct label so it doesn't silently read as ordinary "翻訳を停止".
+const ACTIVE_LABEL_JA: Partial<Record<TranslationSessionState, string>> = {
+  reconnecting: "再接続中",
+};
+
 export function SessionButton({ state, isSpeaking, uiLanguage, onStart, onStop }: SessionButtonProps) {
   const isBusy = BUSY_STATES.includes(state);
   const isActive = ACTIVE_STATES.includes(state);
   const busyLabelJa = BUSY_LABEL_JA[state];
+  const activeLabelJa = ACTIVE_LABEL_JA[state];
   const label = busyLabelJa
     ? t(uiLanguage, busyLabelJa)
-    : t(uiLanguage, isActive ? "翻訳を停止" : "翻訳を開始");
+    : activeLabelJa
+      ? t(uiLanguage, activeLabelJa)
+      : t(uiLanguage, isActive ? "翻訳を停止" : "翻訳を開始");
 
   return (
     <button

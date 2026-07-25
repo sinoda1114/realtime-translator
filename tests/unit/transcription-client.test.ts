@@ -154,4 +154,151 @@ describe("RealtimeTranscriptionClient", () => {
 
     expect(callbacks.onError).not.toHaveBeenCalled();
   });
+
+  describe("reconnection", () => {
+    // The real WebRTC connection setup (openConnection) isn't available in
+    // this test environment (see the file-level comment above), so these
+    // tests drive the private reconnect state machine directly and stub
+    // openConnection where a reconnect attempt needs to "succeed".
+    function asInternal(client: RealtimeTranscriptionClient) {
+      return client as unknown as {
+        refreshClientSecret: (() => Promise<string>) | null;
+        isClosing: boolean;
+        reconnectTimer: ReturnType<typeof setTimeout> | null;
+        reconnectAttempt: number;
+        openConnection: (clientSecret: string) => Promise<void>;
+        scheduleReconnect: () => void;
+      };
+    }
+
+    test("gives up immediately when no refreshClientSecret was provided", () => {
+      const callbacks = createCallbacks();
+      const client = new RealtimeTranscriptionClient(callbacks);
+      const internal = asInternal(client);
+      internal.refreshClientSecret = null;
+
+      internal.scheduleReconnect();
+
+      expect(callbacks.onStateChange).toHaveBeenCalledWith("disconnected");
+      expect(internal.reconnectTimer).toBeNull();
+    });
+
+    test("does nothing once the client is closing", () => {
+      const callbacks = createCallbacks();
+      const client = new RealtimeTranscriptionClient(callbacks);
+      const internal = asInternal(client);
+      internal.refreshClientSecret = vi.fn().mockResolvedValue("fresh-secret");
+      internal.isClosing = true;
+
+      internal.scheduleReconnect();
+
+      expect(callbacks.onStateChange).not.toHaveBeenCalled();
+      expect(internal.reconnectTimer).toBeNull();
+    });
+
+    test("debounces duplicate reconnect triggers for the same drop", () => {
+      const callbacks = createCallbacks();
+      const client = new RealtimeTranscriptionClient(callbacks);
+      const internal = asInternal(client);
+      internal.refreshClientSecret = vi.fn().mockResolvedValue("fresh-secret");
+
+      internal.scheduleReconnect();
+      internal.scheduleReconnect();
+
+      expect(callbacks.onStateChange).toHaveBeenCalledWith("reconnecting");
+      expect(callbacks.onStateChange).toHaveBeenCalledTimes(1);
+    });
+
+    test("reconnects with a fresh secret and reports connected on success", async () => {
+      const callbacks = createCallbacks();
+      const client = new RealtimeTranscriptionClient(callbacks);
+      const internal = asInternal(client);
+      internal.refreshClientSecret = vi.fn().mockResolvedValue("fresh-secret");
+      internal.openConnection = vi.fn().mockResolvedValue(undefined);
+
+      internal.scheduleReconnect();
+      expect(callbacks.onStateChange).toHaveBeenCalledWith("reconnecting");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(internal.refreshClientSecret).toHaveBeenCalledTimes(1);
+      expect(internal.openConnection).toHaveBeenCalledWith("fresh-secret");
+      expect(callbacks.onStateChange).toHaveBeenCalledWith("connected");
+      expect(internal.reconnectAttempt).toBe(0);
+    });
+
+    test("gives up and reports disconnected after exhausting all reconnect attempts", async () => {
+      const callbacks = createCallbacks();
+      const client = new RealtimeTranscriptionClient(callbacks);
+      const internal = asInternal(client);
+      internal.refreshClientSecret = vi.fn().mockRejectedValue(new Error("token endpoint down"));
+
+      internal.scheduleReconnect();
+      await vi.advanceTimersByTimeAsync(1_000); // attempt 1 fails
+      await vi.advanceTimersByTimeAsync(2_000); // attempt 2 fails
+      await vi.advanceTimersByTimeAsync(4_000); // attempt 3 fails, exhausted
+
+      expect(internal.refreshClientSecret).toHaveBeenCalledTimes(3);
+      expect(callbacks.onStateChange).toHaveBeenLastCalledWith("disconnected");
+    });
+
+    // Regression: close() can land while a reconnect attempt is mid-flight
+    // (awaiting a fresh token, or the SDP exchange itself). Without the
+    // isClosing re-checks inside attemptReconnect(), a reconnect completing
+    // after the user pressed stop would silently revive the session and
+    // report "connected" out from under the already-torn-down UI state.
+    test("does not report connected if close() runs while the SDP exchange is still in flight", async () => {
+      const callbacks = createCallbacks();
+      const client = new RealtimeTranscriptionClient(callbacks);
+      const internal = asInternal(client);
+      internal.refreshClientSecret = vi.fn().mockResolvedValue("fresh-secret");
+
+      let resolveOpen: () => void = () => {};
+      internal.openConnection = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveOpen = resolve;
+          }),
+      );
+
+      internal.scheduleReconnect();
+      await vi.advanceTimersByTimeAsync(1_000); // fires attemptReconnect(); it's now awaiting openConnection()
+
+      internal.isClosing = true; // simulate the user pressing stop mid-reconnect
+      resolveOpen();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(callbacks.onStateChange).not.toHaveBeenCalledWith("connected");
+    });
+
+    // Regression: refreshClientSecret() is also an await boundary close()
+    // can land during — a reconnect must not spend a round-trip opening a
+    // connection for a session that's already being torn down.
+    test("does not call openConnection if close() runs while awaiting a fresh client secret", async () => {
+      const callbacks = createCallbacks();
+      const client = new RealtimeTranscriptionClient(callbacks);
+      const internal = asInternal(client);
+
+      let resolveSecret: (secret: string) => void = () => {};
+      internal.refreshClientSecret = vi.fn(
+        () =>
+          new Promise<string>((resolve) => {
+            resolveSecret = resolve;
+          }),
+      );
+      internal.openConnection = vi.fn().mockResolvedValue(undefined);
+
+      internal.scheduleReconnect();
+      await vi.advanceTimersByTimeAsync(1_000); // fires attemptReconnect(); it's now awaiting refreshClientSecret
+
+      internal.isClosing = true;
+      resolveSecret("fresh-secret");
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(internal.openConnection).not.toHaveBeenCalled();
+      expect(callbacks.onStateChange).not.toHaveBeenCalledWith("connected");
+    });
+  });
 });

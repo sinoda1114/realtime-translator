@@ -465,6 +465,11 @@ export function useTranslationSession(
         if (connectionState === "connected") {
           setState("listening");
           silenceDetector.start(stream);
+        } else if (connectionState === "reconnecting" && stateRef.current !== "stopping") {
+          // v2 only: the WebRTC connection dropped mid-session and the
+          // client is retrying with a fresh token before giving up. Distinct
+          // from "disconnected", which is the final, no-more-retries state.
+          setState("reconnecting");
         } else if (connectionState === "disconnected" && stateRef.current !== "stopping") {
           setErrorMessage(t(uiLanguageRef.current, "接続が切れました"));
           setState("error");
@@ -486,10 +491,23 @@ export function useTranslationSession(
 
     clientRef.current = client;
 
+    // v2 only (ignored by v1/mock clients): the initial clientSecret is
+    // single-use for the SDP exchange, so a reconnect after a dropped
+    // connection needs a fresh one from the same token endpoint.
+    const refreshClientSecret = async (): Promise<string> => {
+      const tokenResult = (await postJson("/api/realtime/token", {
+        targetLanguage: getTargetLanguage(sourceLanguageRef.current),
+        deviceId,
+        engine: translationEngine,
+      })) as { data: { clientSecret: string | null; mock: boolean } };
+      return tokenResult.data.clientSecret ?? "mock";
+    };
+
     await client.connect({
       clientSecret,
       stream,
       targetLanguage,
+      refreshClientSecret,
     });
   }, [
     appendSource,

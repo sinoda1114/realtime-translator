@@ -20,6 +20,7 @@ export type RealtimeConnectionState =
   | "idle"
   | "connecting"
   | "connected"
+  | "reconnecting"
   | "disconnected"
   | "error";
 
@@ -65,6 +66,14 @@ export interface TranslationClientConnectInput {
   clientSecret: string;
   stream: MediaStream;
   targetLanguage: TargetLanguage;
+  /**
+   * v2 (transcription) client only: called to obtain a fresh client secret
+   * when reconnecting after the WebRTC connection drops mid-session. The
+   * original clientSecret is single-use for the initial SDP exchange and
+   * can't be reused. Optional because v1's translation client and the mock
+   * client never attempt reconnection.
+   */
+  refreshClientSecret?: () => Promise<string>;
 }
 
 export interface TranscriptionCommitResult {
