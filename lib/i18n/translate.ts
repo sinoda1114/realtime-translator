@@ -38,6 +38,8 @@ const EN: Record<string, string> = {
   翻訳セッションを開始できません: "Unable to start the translation session",
   接続が切れました: "Connection lost",
   翻訳中にエラーが発生しました: "An error occurred during translation",
+  翻訳に失敗しました: "Translation failed",
+  発話の確定に失敗しました: "Failed to finalize the utterance",
 
   // Settings page
   字幕サイズ: "Subtitle Size",
@@ -49,6 +51,11 @@ const EN: Record<string, string> = {
   自動言語判定の初期値: "Auto-Detect Default",
   起動時に自動判定を有効にする: "Enable auto-detect on launch",
   UI言語: "UI Language",
+  翻訳エンジン: "Translation Engine",
+  "v1（同時通訳）": "v1 (Simultaneous)",
+  "v2（逐次翻訳）": "v2 (Per-utterance)",
+  "v2は発話の区切りごとに翻訳します（実験的機能）":
+    "v2 translates each utterance after it ends (experimental).",
   モックモード: "Mock Mode",
   "有効です。OpenAI APIキーが未設定、またはモック固定設定のため、字幕はサンプルデータで表示されます。":
     "Enabled. Subtitles show sample data because no OpenAI API key is set, or mock mode is forced.",

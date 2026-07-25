@@ -32,3 +32,17 @@ export const createUtteranceSchema = z
 export const listConversationsQuerySchema = z.object({
   deviceId: deviceIdSchema,
 });
+
+const TRANSLATE_TEXT_MAX_LENGTH = 2_000;
+
+export const translateRequestSchema = z
+  .object({
+    deviceId: deviceIdSchema,
+    text: z.string().min(1).max(TRANSLATE_TEXT_MAX_LENGTH),
+    sourceLanguage: z.enum(["ja", "en"]),
+    targetLanguage: z.enum(["ja", "en"]),
+  })
+  .refine((data) => data.sourceLanguage !== data.targetLanguage, {
+    message: "sourceLanguage and targetLanguage must differ",
+    path: ["targetLanguage"],
+  });

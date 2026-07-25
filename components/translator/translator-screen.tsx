@@ -24,6 +24,7 @@ export function TranslatorScreen() {
     silenceDurationMs: settings.silenceDurationMs,
     autoDetectDefault: settings.autoDetectDefault,
     uiLanguage: settings.uiLanguage,
+    translationEngine: settings.translationEngine,
   });
   const [controlsExpanded, setControlsExpanded] = useState(true);
 

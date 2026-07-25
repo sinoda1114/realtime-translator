@@ -12,6 +12,10 @@ const serverEnvSchema = z.object({
   TURSO_AUTH_TOKEN: optionalString(),
   APP_ENV: z.enum(["development", "test", "production"]).default("development"),
   DEVICE_ID_HASH_SALT: optionalString(),
+  // Text model used by the v2 translation engine's server-side /api/translate
+  // call. Model naming shifts frequently — verify this id is still current
+  // against OpenAI's docs before relying on it in production.
+  OPENAI_TRANSLATE_TEXT_MODEL: z.preprocess(emptyToUndefined, z.string().min(1).default("gpt-5-nano")),
 });
 
 const clientEnvSchema = z.object({
@@ -29,6 +33,7 @@ function parseServerEnv() {
     TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
     APP_ENV: process.env.APP_ENV,
     DEVICE_ID_HASH_SALT: process.env.DEVICE_ID_HASH_SALT,
+    OPENAI_TRANSLATE_TEXT_MODEL: process.env.OPENAI_TRANSLATE_TEXT_MODEL,
   });
 
   if (!parsed.success) {
