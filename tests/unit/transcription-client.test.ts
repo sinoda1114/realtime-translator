@@ -18,8 +18,13 @@ function createCallbacks() {
 // which isn't available in this test environment, so tests that exercise
 // commitUtterance inject a minimal fake channel directly onto the private
 // field instead.
-function attachOpenDataChannel(client: RealtimeTranscriptionClient): { send: ReturnType<typeof vi.fn> } {
-  const fakeChannel = { readyState: "open" as const, send: vi.fn() };
+function attachOpenDataChannel(client: RealtimeTranscriptionClient): {
+  send: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+} {
+  // close() is part of the fake because close()/teardownConnection() call it;
+  // tests that exercise the stop path would otherwise fail on a missing method.
+  const fakeChannel = { readyState: "open" as const, send: vi.fn(), close: vi.fn() };
   (client as unknown as { dataChannel: typeof fakeChannel }).dataChannel = fakeChannel;
   return fakeChannel;
 }
@@ -111,6 +116,60 @@ describe("RealtimeTranscriptionClient", () => {
     await commitPromise;
 
     expect(channel.send).toHaveBeenCalledWith(JSON.stringify({ type: "input_audio_buffer.commit" }));
+  });
+
+  // Regression: on stop(), flush() finalizes the last utterance microseconds
+  // before teardown() closes the channel, so send() throws InvalidStateError.
+  // Previously that throw escaped commitUtterance() synchronously — before
+  // tracker.commit() ran — so no pending entry existed and the accumulated
+  // transcript was discarded outright. Registering the pending commit first
+  // means close()'s flushAll() can still salvage it.
+  test("salvages the accumulated transcript when send() throws mid-close", async () => {
+    const callbacks = createCallbacks();
+    const client = new RealtimeTranscriptionClient(callbacks);
+    const channel = attachOpenDataChannel(client);
+    client.handleServerEvent(
+      JSON.stringify({
+        type: "conversation.item.input_audio_transcription.delta",
+        item_id: "item-1",
+        delta: "最後の発話",
+      }),
+    );
+    channel.send.mockImplementation(() => {
+      throw new Error("InvalidStateError: readyState not 'open'");
+    });
+
+    const commitPromise = client.commitUtterance!();
+    await client.close(); // flushAll() resolves the pending from accumulated deltas
+
+    await expect(commitPromise).resolves.toEqual({
+      transcript: "最後の発話",
+      source: "fallback",
+    });
+  });
+
+  test("a failed send still resolves via the timeout when close() never runs", async () => {
+    const callbacks = createCallbacks();
+    const client = new RealtimeTranscriptionClient(callbacks, { commitTimeoutMs: 2000 });
+    const channel = attachOpenDataChannel(client);
+    client.handleServerEvent(
+      JSON.stringify({
+        type: "conversation.item.input_audio_transcription.delta",
+        item_id: "item-1",
+        delta: "途中まで",
+      }),
+    );
+    channel.send.mockImplementation(() => {
+      throw new Error("InvalidStateError: readyState not 'open'");
+    });
+
+    const commitPromise = client.commitUtterance!();
+    vi.advanceTimersByTime(2000);
+
+    await expect(commitPromise).resolves.toEqual({
+      transcript: "途中まで",
+      source: "fallback",
+    });
   });
 
   test("treats an empty-buffer commit error as non-fatal (no onError call)", () => {

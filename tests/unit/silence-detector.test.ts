@@ -104,4 +104,39 @@ describe("SilenceDetector", () => {
 
     expect(detector.getState()).toBe("listening");
   });
+
+  // The ambient-noise calibration runs while the detector is already live
+  // (it needs the running analyser to sample the room), so the thresholds it
+  // computes have to be applied to an existing instance.
+  describe("setThresholds", () => {
+    test("a level that was too quiet to register now starts speech", () => {
+      const onSpeechStart = vi.fn();
+      const detector = createDetector({ onSpeechStart });
+
+      detector.update(0.01, 0); // below the original 0.05 start threshold
+      expect(onSpeechStart).not.toHaveBeenCalled();
+
+      detector.setThresholds(0.005, 0.0025);
+      detector.update(0.01, 50);
+
+      expect(onSpeechStart).toHaveBeenCalledOnce();
+      expect(detector.getState()).toBe("speaking");
+    });
+
+    test("the new stop threshold governs finalization", () => {
+      const onFinalize = vi.fn();
+      const detector = createDetector({ onFinalize });
+      detector.setThresholds(0.005, 0.0025);
+
+      detector.update(0.01, 0); // speaking
+      detector.update(0.003, 100); // above the new stop threshold — still speaking
+      expect(detector.getState()).toBe("speaking");
+
+      detector.update(0.001, 200); // below it — silence starts
+      expect(detector.getState()).toBe("silence_pending");
+
+      detector.update(0.001, 200 + SILENCE_DURATION_MS);
+      expect(onFinalize).toHaveBeenCalledOnce();
+    });
+  });
 });
