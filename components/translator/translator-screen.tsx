@@ -5,6 +5,7 @@ import { useLocalSettings } from "@/hooks/use-local-settings";
 import { useTranslationSession } from "@/hooks/use-translation-session";
 import { t } from "@/lib/i18n/translate";
 import { LanguageControls } from "./language-controls";
+import { LayoutToggle } from "./layout-toggle";
 import { SessionButton } from "./session-button";
 import { StatusBar } from "./status-bar";
 import { TopNav } from "./top-nav";
@@ -51,19 +52,29 @@ export function TranslatorScreen() {
 
   return (
     <div className="flex h-dvh flex-col bg-[var(--color-paper)] text-[var(--color-ink)]">
-      <div className="flex-1 overflow-hidden border-b border-[var(--color-rule)]">
-        <TranslationPane
-          orientation="rotated"
-          sourceLanguage={session.sourceLanguage}
-          sourceText={session.sourceText}
-          translatedText={session.translatedText}
-          isSpeaking={session.isSpeaking}
-          isFinal={false}
-          fontSize={settings.fontSize}
-          uiLanguage={settings.uiLanguage}
-          ariaHidden
-        />
-      </div>
+      <LayoutToggle
+        uiLanguage={settings.uiLanguage}
+        viewMode={settings.viewMode}
+        onToggle={() =>
+          updateSettings({ viewMode: settings.viewMode === "facing" ? "shared" : "facing" })
+        }
+      />
+
+      {settings.viewMode === "facing" && (
+        <div className="flex-1 overflow-hidden border-b border-[var(--color-rule)]">
+          <TranslationPane
+            orientation="rotated"
+            sourceLanguage={session.sourceLanguage}
+            sourceText={session.sourceText}
+            translatedText={session.translatedText}
+            isSpeaking={session.isSpeaking}
+            isFinal={false}
+            fontSize={settings.fontSize}
+            uiLanguage={settings.uiLanguage}
+            ariaHidden
+          />
+        </div>
+      )}
 
       <div className="flex flex-col items-center gap-2 bg-[var(--color-paper-2)] px-4 py-2">
         <div

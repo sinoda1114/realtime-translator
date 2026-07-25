@@ -17,6 +17,7 @@ describe("parseStoredSettings", () => {
       autoDetectDefault: true,
       uiLanguage: "en",
       theme: "dark",
+      viewMode: "shared",
     });
 
     expect(parseStoredSettings(stored)).toEqual({
@@ -25,6 +26,7 @@ describe("parseStoredSettings", () => {
       autoDetectDefault: true,
       uiLanguage: "en",
       theme: "dark",
+      viewMode: "shared",
     });
   });
 
@@ -35,6 +37,7 @@ describe("parseStoredSettings", () => {
       autoDetectDefault: "yes",
       uiLanguage: "fr",
       theme: "sepia",
+      viewMode: "grid",
     });
 
     expect(parseStoredSettings(stored)).toEqual(DEFAULT_SETTINGS);
@@ -64,6 +67,27 @@ describe("parseStoredSettings", () => {
       autoDetectDefault: false,
       uiLanguage: "en",
       theme: "light",
+      viewMode: "facing",
+    });
+  });
+
+  test("migrates pre-viewMode-field settings by defaulting viewMode to facing", () => {
+    // Simulates a value saved before the layout toggle shipped.
+    const stored = JSON.stringify({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+      theme: "dark",
+    });
+
+    expect(parseStoredSettings(stored)).toEqual({
+      fontSize: "medium",
+      silenceDurationMs: 900,
+      autoDetectDefault: false,
+      uiLanguage: "en",
+      theme: "dark",
+      viewMode: "facing",
     });
   });
 });

@@ -25,10 +25,21 @@ export function useLocalSettings(): UseLocalSettingsResult {
       setSettings(parseStoredSettings(raw));
       return;
     }
-    // First-ever visit: resolve the theme from the OS/browser preference
-    // instead of hardcoding light, then persist it as the explicit choice.
+    // First-ever visit (nothing in localStorage yet): resolve theme and
+    // viewMode from device signals instead of hardcoding. This only sets
+    // in-memory state — nothing is written to localStorage until the user
+    // explicitly toggles something via updateSettings, so a fresh visit
+    // keeps tracking live device signals rather than freezing a snapshot.
+    // Portrait suggests the phone is held upright between two people
+    // facing each other; landscape suggests it's lying flat between
+    // people seated side by side.
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setSettings({ ...DEFAULT_SETTINGS, theme: prefersDark ? "dark" : "light" });
+    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+    setSettings({
+      ...DEFAULT_SETTINGS,
+      theme: prefersDark ? "dark" : "light",
+      viewMode: isLandscape ? "shared" : "facing",
+    });
   }, []);
 
   useEffect(() => {
