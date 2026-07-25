@@ -17,4 +17,5 @@ export interface LocalSettings {
   uiLanguage: UiLanguage;
   theme: ThemeMode;
   viewMode: ViewMode;
+  showSourceText: boolean;
 }

@@ -106,3 +106,27 @@ test("finalizes and saves an utterance after real silence is detected", async ({
   await expect(page.getByText("今日は横浜に行きます。").first()).toBeVisible();
   await expect(page.getByText("I'm going to Yokohama today.").first()).toBeVisible();
 });
+
+test("hides the original text when toggled, keeping the translation visible", async ({ page }) => {
+  await stubMicrophoneTone(page);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "翻訳を開始" }).click();
+
+  const sourceTexts = page.getByText("今日は横浜に行きます。");
+  const translatedTexts = page.getByText("I'm going to Yokohama today.");
+  await expect(sourceTexts.first()).toBeVisible({ timeout: 10_000 });
+  await expect(translatedTexts.first()).toBeVisible({ timeout: 10_000 });
+
+  // The control bar auto-collapses once a session goes active; re-expand it
+  // to reach the toggle button inside.
+  const controlsToggle = page.locator('button[aria-controls="translator-controls-panel"]');
+  if ((await controlsToggle.getAttribute("aria-expanded")) === "false") {
+    await controlsToggle.click();
+  }
+
+  await page.getByRole("button", { name: "原文を隠す" }).click();
+
+  await expect(sourceTexts.first()).toBeHidden();
+  await expect(translatedTexts.first()).toBeVisible();
+});

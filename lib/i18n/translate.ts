@@ -26,6 +26,8 @@ const EN: Record<string, string> = {
   ライトモードに切り替える: "Switch to light mode",
   隣並び表示に切り替える: "Switch to side-by-side view",
   対面表示に切り替える: "Switch to facing view",
+  原文を隠す: "Hide original text",
+  原文を表示する: "Show original text",
 
   // Errors
   マイクの利用が許可されていません: "Microphone access was denied",

@@ -68,6 +68,7 @@ export function TranslatorScreen() {
             sourceText={session.sourceText}
             translatedText={session.translatedText}
             completedUtterances={session.completedUtterances}
+            showSourceText={settings.showSourceText}
             isSpeaking={session.isSpeaking}
             isFinal={false}
             fontSize={settings.fontSize}
@@ -96,6 +97,10 @@ export function TranslatorScreen() {
                 theme={settings.theme}
                 onToggleTheme={() =>
                   updateSettings({ theme: settings.theme === "dark" ? "light" : "dark" })
+                }
+                showSourceText={settings.showSourceText}
+                onToggleShowSourceText={() =>
+                  updateSettings({ showSourceText: !settings.showSourceText })
                 }
               />
             </div>
@@ -151,6 +156,7 @@ export function TranslatorScreen() {
           sourceText={session.sourceText}
           translatedText={session.translatedText}
           completedUtterances={session.completedUtterances}
+          showSourceText={settings.showSourceText}
           isSpeaking={session.isSpeaking}
           isFinal={false}
           fontSize={settings.fontSize}

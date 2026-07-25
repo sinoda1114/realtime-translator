@@ -15,6 +15,7 @@ interface TranslationPaneProps {
   sourceText: string;
   translatedText: string;
   completedUtterances: CompletedUtterance[];
+  showSourceText: boolean;
   isSpeaking: boolean;
   isFinal: boolean;
   fontSize: FontSizePreset;
@@ -34,6 +35,7 @@ export function TranslationPane({
   sourceText,
   translatedText,
   completedUtterances,
+  showSourceText,
   isSpeaking,
   fontSize,
   uiLanguage,
@@ -80,11 +82,15 @@ export function TranslationPane({
       >
         {completedUtterances.map((utterance) => (
           <div key={utterance.id}>
-            <div className="font-bold leading-[1.25]" style={{ fontSize: subtitleSize }}>
-              {utterance.sourceText}
-            </div>
+            {showSourceText && (
+              <div className="font-bold leading-[1.25]" style={{ fontSize: subtitleSize }}>
+                {utterance.sourceText}
+              </div>
+            )}
             <div
-              className="mt-3 leading-[1.3] text-[var(--color-ink-2)]"
+              className={`leading-[1.3] ${
+                showSourceText ? "mt-3 text-[var(--color-ink-2)]" : "font-bold"
+              }`}
               style={{ fontSize: subtitleSize }}
             >
               {utterance.translatedText}
@@ -92,15 +98,19 @@ export function TranslationPane({
           </div>
         ))}
         <div>
-          <div className="font-bold leading-[1.25]" style={{ fontSize: subtitleSize }}>
-            <TranscriptText
-              text={sourceText}
-              isSpeaking={isSpeaking}
-              emptyPlaceholder={sourcePlaceholder(sourceLanguage)}
-            />
-          </div>
+          {showSourceText && (
+            <div className="font-bold leading-[1.25]" style={{ fontSize: subtitleSize }}>
+              <TranscriptText
+                text={sourceText}
+                isSpeaking={isSpeaking}
+                emptyPlaceholder={sourcePlaceholder(sourceLanguage)}
+              />
+            </div>
+          )}
           <div
-            className="mt-3 leading-[1.3] text-[var(--color-ink-2)]"
+            className={`leading-[1.3] ${
+              showSourceText ? "mt-3 text-[var(--color-ink-2)]" : "font-bold"
+            }`}
             style={{ fontSize: subtitleSize }}
           >
             <TranscriptText
