@@ -9,6 +9,14 @@ import type {
 
 export type V2FinalizePhase = "finalizing" | "saving" | "done";
 
+// How long to wait before retrying a failed commitUtterance() once. Chosen
+// to be a bit longer than the client's first reconnect backoff step (1s —
+// see MAX_RECONNECT_ATTEMPTS/RECONNECT_BACKOFF_MS in transcription-client.ts)
+// so that attempt has a realistic chance to have landed by the time we
+// retry, without making the failure path noticeably sluggish when it can't
+// actually recover (e.g. no refreshClientSecret, or genuinely offline).
+const COMMIT_RETRY_DELAY_MS = 1500;
+
 export interface SaveUtteranceInput {
   sourceLanguage: SourceLanguage;
   targetLanguage: TargetLanguage;
@@ -29,6 +37,7 @@ export interface V2FinalizeDeps {
   onError: (messageKey: string) => void;
   setPhase: (phase: V2FinalizePhase) => void;
   createId?: () => string;
+  delay?: (ms: number) => Promise<void>;
 }
 
 // Orchestrates the v2 finalize flow: commit the audio buffer, wait for the
@@ -41,13 +50,37 @@ export function createV2FinalizeHandler(deps: V2FinalizeDeps): () => Promise<voi
     const sourceLanguage = deps.getSourceLanguage();
     deps.setPhase("finalizing");
 
+    const delay =
+      deps.delay ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+
     let commitResult: TranscriptionCommitResult;
     try {
       commitResult = await deps.commitUtterance();
     } catch {
-      deps.onError("発話の確定に失敗しました");
-      deps.setPhase("done");
-      return;
+      // The most common cause is the WebRTC DataChannel having dropped
+      // mid-session — the client already retries reconnecting in the
+      // background (see scheduleReconnect() in transcription-client.ts),
+      // but that recovery doesn't retroactively rescue THIS commit: the
+      // channel-not-open check rejects synchronously the instant it's
+      // called, with no awareness of an in-flight reconnect. Wait long
+      // enough for the client's first reconnect attempt to have a
+      // realistic chance to land, then retry exactly once before giving
+      // up. Safe to retry: a rejected attempt never actually sent
+      // input_audio_buffer.commit to the server, so nothing is duplicated.
+      //
+      // delay() itself is inside this try too: the injected implementation
+      // is expected to never reject (the default setTimeout-based one
+      // never does), but if it somehow did, that must fall through to the
+      // same error/done handling below instead of rejecting finalizeV2()
+      // itself and leaving the caller stuck in "finalizing".
+      try {
+        await delay(COMMIT_RETRY_DELAY_MS);
+        commitResult = await deps.commitUtterance();
+      } catch {
+        deps.onError("発話の確定に失敗しました");
+        deps.setPhase("done");
+        return;
+      }
     }
     const sourceText = commitResult.transcript.trim();
     if (!sourceText) {
