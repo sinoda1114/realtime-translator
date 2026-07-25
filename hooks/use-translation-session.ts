@@ -105,6 +105,27 @@ export function useTranslationSession(
   const uiLanguageRef = useRef(uiLanguage);
   const autoDetectStateRef = useRef<AutoDetectState>(createAutoDetectState());
   const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The realtime API keeps streaming transcript/translation deltas for the
+  // audio it already received even after we've locally finalized on silence
+  // and reset the buffer — there's no ack tying a delta to "the utterance
+  // that just ended" vs "the next one". Without this guard, those late
+  // deltas land in the freshly-reset buffer and get shown as if they belong
+  // to whatever is spoken next, producing translations that don't match the
+  // visible original text. Deltas are dropped from the moment we finalize
+  // until the silence detector confirms a new utterance has actually begun.
+  //
+  // Known limitations (no per-utterance id/generation from the API to do
+  // this precisely):
+  // - A delta legitimately belonging to the utterance that just finalized
+  //   can arrive after the drop window opens and gets discarded, not
+  //   appended to the completed entry. Trades completeness for correctness
+  //   of what's on screen — silently swallowing a mismatched translation
+  //   was judged worse than occasionally trimming a trailing word.
+  // - If the API's delay outlasts the silence gap, a stale delta arriving
+  //   just after onSpeechStart re-opens the gate can still leak through.
+  //   This isn't fully closable without a response/item id to match deltas
+  //   against; treat as a residual risk, not a guarantee.
+  const acceptDeltasRef = useRef(true);
   useEffect(() => {
     bufferRef.current = buffer;
     sourceLanguageRef.current = sourceLanguage;
@@ -141,6 +162,7 @@ export function useTranslationSession(
     const utteranceStartedAt = utteranceStartedAtRef.current;
     reset();
     utteranceStartedAtRef.current = null;
+    acceptDeltasRef.current = false;
 
     const completeness = getTranscriptBufferCompleteness(snapshot);
     if (completeness === "empty") {
@@ -200,6 +222,7 @@ export function useTranslationSession(
   const silenceDetector = useSilenceDetector({
     silenceDurationMs,
     onSpeechStart: () => {
+      acceptDeltasRef.current = true;
       utteranceStartedAtRef.current = Date.now();
       setState("speaking");
     },
@@ -233,6 +256,7 @@ export function useTranslationSession(
     setState("requesting_permission");
     reset();
     setCompletedUtterances([]);
+    acceptDeltasRef.current = true;
 
     let stream: MediaStream;
     try {
@@ -281,9 +305,15 @@ export function useTranslationSession(
 
     const callbacks = {
       onSourceDelta: (delta: string) => {
+        if (!acceptDeltasRef.current) {
+          return;
+        }
         appendSource(delta);
       },
       onTranslationDelta: (delta: string) => {
+        if (!acceptDeltasRef.current) {
+          return;
+        }
         appendTranslation(delta);
       },
       onStateChange: (connectionState: RealtimeConnectionState) => {
