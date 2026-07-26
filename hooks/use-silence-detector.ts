@@ -15,6 +15,13 @@ const POLL_INTERVAL_MS = 50;
 const RMS_DISPLAY_UPDATE_EVERY_N_TICKS = 4;
 const CALIBRATION_TICKS = Math.ceil(CALIBRATION_DURATION_MS / POLL_INTERVAL_MS);
 
+/**
+ * Hard cap on how long audio accumulates before being finalized regardless
+ * of volume. 5s is long enough to hold a normal sentence, short enough that
+ * a translation appears while the exchange is still live.
+ */
+const MAX_UTTERANCE_MS = 5000;
+
 export interface UseSilenceDetectorOptions {
   silenceDurationMs: number;
   onSpeechStart?: () => void;
@@ -92,6 +99,7 @@ export function useSilenceDetector(options: UseSilenceDetectorOptions): UseSilen
         startThreshold: DEFAULT_START_THRESHOLD,
         stopThreshold: DEFAULT_STOP_THRESHOLD,
         silenceDurationMs: optionsRef.current.silenceDurationMs,
+        maxUtteranceMs: MAX_UTTERANCE_MS,
         onSpeechStart: () => {
           setIsSpeaking(true);
           optionsRef.current.onSpeechStart?.();
