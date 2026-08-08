@@ -1,42 +1,19 @@
+# 標準CI呼び出し（実体: https://github.com/sinoda1114/ci-standard）
 name: CI
 
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Unit & integration tests
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-        env:
-          NEXT_PUBLIC_ENABLE_MOCK_TRANSLATION: "true"
-
-      - name: Audit
-        run: pnpm audit --audit-level=high
-        continue-on-error: true
+  ci:
+    uses: sinoda1114/ci-standard/.github/workflows/node-ci.yml@main
+    secrets: inherit
