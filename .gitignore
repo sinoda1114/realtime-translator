@@ -47,3 +47,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# CI の E2E で生成するローカル SQLite（.github/ci.env 参照）
+/ci-e2e.db
