@@ -2,6 +2,15 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - postcss@8.5.23
+  - vitest@4.1.11
+  - '@vitest/mocker@4.1.11 || 4.1.12'
+  - source-map-js@1.2.2
+  - sharp@0.35.5
+  - vite@8.1.6
+  - zod@4.6.6
+  - undici@7.30.1
 onlyBuiltDependencies:
   - sharp
   - unrs-resolver
@@ -17,3 +26,5 @@ overrides:
   "js-yaml@4": "^4.3.2"
   "nanoid@3": "^3.3.18"
   "undici@7": "^7.29.0"
+  # vite 8.1.5 以下の high（GHSA-587h-7wmj-h5pm）対応。lockfile 更新だけでは 8.1.5 に留まるため。
+  "vite@8": "^8.1.6"
