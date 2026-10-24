@@ -2,15 +2,6 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
-minimumReleaseAgeExclude:
-  - postcss@8.5.23
-  - vitest@4.1.11
-  - '@vitest/mocker@4.1.11 || 4.1.12'
-  - source-map-js@1.2.2
-  - sharp@0.35.5
-  - vite@8.1.6
-  - zod@4.6.6
-  - undici@7.30.1
 onlyBuiltDependencies:
   - sharp
   - unrs-resolver
