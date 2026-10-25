@@ -1,8 +1,10 @@
 # 公開から 24 時間（1440 分）経っていない版は解決しない（供給網攻撃への備え）。
 # 値は pnpm 11 以降の既定と同じ。既定に頼らず明記する。
-# 明記すると minimumReleaseAgeStrict が既定で true になり、条件を満たす版が無ければ
-# 黙って minimumReleaseAgeExclude へ追記して通すのではなく、エラーで止まる。
+# 条件を満たす版が無いときは、黙って minimumReleaseAgeExclude へ追記して通すのではなく
+# エラーで止める。明記すると pnpm 11.10.0 では既定で true になる（実測）が、
+# pnpm の版が変わっても効き方が変わらないよう、こちらも明記する。
 minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
 allowBuilds:
   esbuild: true
   sharp: true
